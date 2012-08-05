@@ -1,0 +1,38 @@
+{{extend 'layout.html'}}
+
+<style type="text/css">
+.cat {
+    background: blue;
+    color:white;
+}
+</style>
+
+{{block featured}}
+<h1> FEATURED </h1>
+
+<ul>
+{{for product in featured:}}
+<li> 
+   <b> {{=product.name}} </b>
+    {{=SPAN(product.category.name, _class="cat")}}
+
+<hr>
+</li>
+{{pass}}
+</ul>
+
+{{end}}
+
+
+<h1> GALLERY </h1>
+
+<ul>
+{{for product in products:}}
+<li> 
+   <b> {{=product.name}} </b>
+    {{=SPAN(product.category.name, _class="cat")}}
+
+<hr>
+</li>
+{{pass}}
+</ul>
