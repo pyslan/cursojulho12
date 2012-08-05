@@ -1,9 +1,25 @@
 # coding: utf-8
 
 def index():
-    # list all products
-    # featured / gallery
-    pass
+    products = db(db.product).select(limitby=(0, 100))
+    featured = products.exclude(lambda registro: registro.featured == True)
+    #print db._timings
+    #response.view = "alternate/myhome.html"
+    return dict(products=products, featured=featured)  
+
+
+
+    # objetos = [1,2,3]
+    # import json
+    # return json.dumps(dict(objetos=objetos))
+
+
+    # return DIV(
+    #             UL(
+    #               LI(A("Hello")),
+    #               LI(A("Google", _href="http://www.google.com"))
+    #               )
+    #             )
 
 
 def user():
