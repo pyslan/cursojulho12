@@ -2,3 +2,5 @@
 
 # conectar ao banco de dados
 # setar opcoes da DAL
+
+db = DAL(**config.db)
