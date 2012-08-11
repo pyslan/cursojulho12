@@ -20,8 +20,12 @@ import cgi
 import cStringIO
 import logging
 try:
+    # have web2py
     from restricted import RestrictedError
-except:
+    from globals import current
+except ImportError:
+    # do not have web2py
+    current = None
     def RestrictedError(a,b,c):
         logging.error(str(a)+':'+str(b)+':'+str(c))
         return RuntimeError
@@ -47,8 +51,8 @@ class SuperNode(Node):
         if self.value:
             return str(self.value)
         else:
-            raise SyntaxError("Undefined parent block ``%s``. \n" % self.name + \
-"You must define a block before referencing it.\nMake sure you have not left out an ``{{end}}`` tag." )
+            # raise SyntaxError("Undefined parent block ``%s``. \n" % self.name + "You must define a block before referencing it.\nMake sure you have not left out an ``{{end}}`` tag." )
+            return ''
 
     def __repr__(self):
         return "%s->%s" % (self.name, self.value)
@@ -289,7 +293,7 @@ class TemplateParser(object):
         if delimiters != self.default_delimiters:
             escaped_delimiters = (re.escape(delimiters[0]),re.escape(delimiters[1]))
             self.r_tag = re.compile(r'(%s.*?%s)' % escaped_delimiters, re.DOTALL)
-        elif context.has_key('response'):
+        elif context.has_key('response') and hasattr(context['response'],'delimiters'):
             if context['response'].delimiters != self.default_delimiters:
                 escaped_delimiters = (re.escape(context['response'].delimiters[0]),
                                       re.escape(context['response'].delimiters[1]))
@@ -430,12 +434,17 @@ class TemplateParser(object):
         if not filename.strip():
             self._raise_error('Invalid template filename')
 
+        # Allow Views to include other views dynamically
+        context = self.context
+        if current and not "response" in context:
+            context["response"] = current.response
+
         # Get the filename; filename looks like ``"template.html"``.
         # We need to eval to remove the quotes and get the string type.
-        filename = eval(filename, self.context)
+        filename = eval(filename, context)
 
         # Get the path of the file on the system.
-        filepath = os.path.join(self.path, filename)
+        filepath = self.path and os.path.join(self.path, filename) or filename
 
         # try to read the text.
         try:
@@ -933,6 +942,7 @@ def render(content = "hello world",
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+
 
 
 

@@ -70,7 +70,7 @@ def populate(table, n, default=True, compute=False):
                 continue
             elif field.type == 'id':
                 continue
-            elif default and field.default:
+            elif default and field.default !=None:
                 record[fieldname]=field.default
             elif compute and field.compute:
                 continue
@@ -103,15 +103,22 @@ def populate(table, n, default=True, compute=False):
             elif field.type=='list:integer' and hasattr(field.requires,'options'):
                 options=field.requires.options(zero=False)
                 if len(options) > 0:
-                    vals = []
-                    for i in range(0, random.randint(0,len(options)-1)/2):
-                        vals.append(options[random.randint(0,len(options)-1)][0])
-                    record[fieldname] = vals
-            elif field.type in ['integer','double'] or str(field.type).startswith('decimal'):
+                    record[fieldname] = [item[0] for item in random.sample(options, random.randint(0,len(options)-1)/2)]
+            elif field.type == 'integer':
                 try:
                     record[fieldname] = random.randint(field.requires.minimum,field.requires.maximum-1)
                 except:
                     record[fieldname] = random.randint(0,1000)
+            elif field.type == 'double' or str(field.type).startswith('decimal'):
+                if hasattr(field.requires,'minimum'):
+                    rand=random.random()
+                    if str(field.type).startswith('decimal'):
+                        import decimal
+                        rand=decimal.Decimal(rand)
+                    record[fieldname] = field.requires.minimum+ \
+                                        rand*(field.requires.maximum-field.requires.minimum)
+                else:
+                    record[fieldname] = random.random()*1000
             elif field.type[:10] == 'reference ':
                 tablename = field.type[10:]
                 if not tablename in ids:
@@ -133,19 +140,13 @@ def populate(table, n, default=True, compute=False):
                         ids[tablename] = [x.id for x in table._db(table._db[field.type[15:]].id>0).select()]
                 n = len(ids[tablename])
                 if n:
-                    vals = []
-                    for i in range(0, random.randint(0,n-1)/2):
-                        vals.append(ids[tablename][random.randint(0,n-1)])
-                    record[fieldname] = vals
+                    record[fieldname] = [item for item in random.sample(ids[tablename], random.randint(0,n-1)/2)]
                 else:
                     record[fieldname] = 0
             elif field.type=='list:string' and hasattr(field.requires,'options'):
                 options=field.requires.options(zero=False)
                 if len(options) > 0:
-                    vals = []
-                    for i in range(0, random.randint(0,len(options)-1)/2):
-                        vals.append(options[random.randint(0,len(options)-1)][0])
-                    record[fieldname] = vals
+                    record[fieldname] = [item[0] for item in random.sample(options, random.randint(0,len(options)-1)/2)]
             elif field.type=='string' and hasattr(field.requires,'options'):
                 options=field.requires.options(zero=False)
                 record[fieldname] = options[random.randint(0,len(options)-1)][0]
@@ -164,6 +165,7 @@ if __name__ == '__main__':
     ell=Learner()
     ell.loadd(eval(IUP))
     print ell.generate(1000,prefix=None)
+
 
 
 

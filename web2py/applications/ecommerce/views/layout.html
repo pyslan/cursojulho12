@@ -2,36 +2,53 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Bootstrap, from Twitter</title>
+    <title>{{=response.title}}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="">
-    <meta name="author" content="">
-
+    <meta name="description" content="{{=response.description}}">
     <!-- Le styles -->
     <link href="{{=URL('static', 'css', args='bootstrap.css')}}" rel="stylesheet">
+
+    <!-- web2py css -->
+    <link href="{{=URL('static', 'css', args='calendar.css')}}" rel="stylesheet">
+    <link href="{{=URL('static', 'css', args='web2py.css')}}" rel="stylesheet">
+    
+    <!-- navbar -->
     <style type="text/css">
       body {
         padding-top: 60px;
         padding-bottom: 40px;
       }
     </style>
+    
     <link href="{{=URL('static', 'css', args='bootstrap-responsive.css')}}" rel="stylesheet">
-
+    
     <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
+    
+    <!-- web2py JS -->
+    
+    <script type="text/javascript"><!--
+    // These variables are used by the web2py_ajax_init function in web2py_ajax.js (which is loaded below).
+    var w2p_ajax_confirm_message = "{{=T('Are you sure you want to delete this object?')}}";
+    var w2p_ajax_date_format = "{{=T('%Y-%m-%d')}}";
+    var w2p_ajax_datetime_format = "{{=T('%Y-%m-%d %H:%M:%S')}}";
+    //--></script>
 
-    <!-- Le fav and touch icons -->
-    <link rel="shortcut icon" href="../assets/ico/favicon.ico">
-    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="../assets/ico/apple-touch-icon-144-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="../assets/ico/apple-touch-icon-114-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="../assets/ico/apple-touch-icon-72-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" href="../assets/ico/apple-touch-icon-57-precomposed.png">
+    <script src="{{=URL('static', 'js', args='jquery.js')}}"></script>
+    <script src="{{=URL('static', 'js', args='calendar.js')}}"></script>
+    <script src="{{=URL('static', 'js', args='web2py.js')}}"></script>
+    
+    <!-- bootstrap JS -->
+    <script src="{{=URL('static', 'js', args='bootstrap.js')}}"></script>
+    
+    {{block head}}<!-- Custom header for subpages -->{{end}}    
   </head>
-
   <body>
+    {{include}}
 
+    {{block navbar}}
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -40,7 +57,7 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </a>
-          <a class="brand" href="#">Project name</a>
+          <a class="brand" href="/">Ecommerce</a>
           <div class="nav-collapse">
             <ul class="nav">
               <li class="active"><a href="#">Home</a></li>
@@ -51,18 +68,19 @@
         </div>
       </div>
     </div>
+    {{end}}
 
     <div class="container">
-
+      {{block featured}}
       <!-- Main hero unit for a primary marketing message or call to action -->
       <div class="hero-unit">
-      {{block featured}}
         <h1>Hello, world!</h1>
         <p>This is a template for a simple marketing or informational website. It includes a large callout called the hero unit and three supporting pieces of content. Use it as a starting point to create something more unique.</p>
         <p><a class="btn btn-primary btn-large">Learn more &raquo;</a></p>
-      {{end}}
       </div>
+      {{end}}
 
+      {{block main}}
       <!-- Example row of columns -->
       <div class="row">
         <div class="span4">
@@ -81,20 +99,16 @@
           <p><a class="btn" href="#">View details &raquo;</a></p>
         </div>
       </div>
+      {{end}}
 
+      {{#include '../static/fail.html'}}
       <hr>
-
+      
+      {{block footer}}
       <footer>
         <p>&copy; Company 2012</p>
       </footer>
-
+      {{end}}
     </div> <!-- /container -->
-
-    <!-- Le javascript
-    ================================================== -->
-    <!-- Placed at the end of the document so the pages load faster -->
-    <script src="{{=URL('static', 'js', args='bootstrap.js')}}"></script>
-
-
   </body>
 </html>

@@ -179,7 +179,6 @@ if [ ! ${RETV} -eq 0 ]; then
 
     # Create the SELinux policy
 cat > httpd.te <<EOF
- EOF
 
 module httpd 1.0;
 
@@ -225,7 +224,6 @@ cd /tmp/setup-web2py
 # Create rules file - based upon
 # http://articles.slicehost.com/assets/2007/9/4/iptables.txt
 cat > iptables.rules <<EOF
- EOF
 *filter
 
 #  Allows all loopback (lo0) traffic
@@ -297,7 +295,6 @@ if [ -e /etc/httpd/conf.d/welcome.conf ]; then
 fi
 
 cat  > /etc/httpd/conf.d/default.conf <<EOF
- EOF
 
 NameVirtualHost *:80
 NameVirtualHost *:443
@@ -306,6 +303,7 @@ NameVirtualHost *:443
   WSGIDaemonProcess web2py user=apache group=apache
   WSGIProcessGroup web2py
   WSGIScriptAlias / /opt/web-apps/web2py/wsgihandler.py
+  WSGIPassAuthorization On
 
   <Directory /opt/web-apps/web2py>
     AllowOverride None
@@ -342,8 +340,8 @@ NameVirtualHost *:443
   SSLCertificateKeyFile /etc/httpd/ssl/self_signed.key
 
   WSGIProcessGroup web2py
-
   WSGIScriptAlias / /opt/web-apps/web2py/wsgihandler.py
+  WSGIPassAuthorization On
 
   <Directory /opt/web-apps/web2py>
     AllowOverride None
@@ -403,7 +401,3 @@ cd ${current_directory}
 
 echo " - Complete!"
 echo
-
-EOF
-EOF
-EOF

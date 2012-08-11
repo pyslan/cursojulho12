@@ -43,12 +43,13 @@ def _router_default():
         default_language = None,
             languages = None,
         root_static = ['favicon.ico', 'robots.txt'],
+        map_static = None,
         domains = None,
         exclusive_domain = False,
         map_hyphen = False,
-        acfe_match = r'\w+$',              # legal app/ctlr/fcn/ext
-        file_match = r'(\w+[-=./]?)+$',    # legal file (path) name
-        args_match = r'([\w@ -]+[=.]?)*$', # legal arg in args
+        acfe_match = r'\w+$',                   # legal app/ctlr/fcn/ext
+        file_match = r'([-+=@$%\w]+[./]?)+$',   # legal static subpath
+        args_match = r'([\w@ -]+[=.]?)*$',      # legal arg in args
     )
     return router
 
@@ -179,7 +180,7 @@ def try_rewrite_on_error(http_response, request, environ, ticket=None):
                     path_info, query_string = uri, ''
                 query_string += \
                     'code=%s&ticket=%s&requested_uri=%s&request_url=%s' % \
-                    (status,ticket,request.env.request_uri,request.url)
+                    (status,ticket,urllib.quote_plus(request.env.request_uri),request.url)
                 if uri.startswith('http://') or uri.startswith('https://'):
                     # make up a response
                     url = path_info+'?'+query_string
@@ -214,10 +215,14 @@ def try_redirect_on_error(http_object, request, ticket=None):
                     break
                 elif '?' in redir:
                     url = '%s&code=%s&ticket=%s&requested_uri=%s&request_url=%s' % \
-                        (redir,status,ticket,request.env.request_uri,request.url)
+                        (redir,status,ticket,
+                         urllib.quote_plus(request.env.request_uri),
+                         request.url)
                 else:
                     url = '%s?code=%s&ticket=%s&requested_uri=%s&request_url=%s' % \
-                        (redir,status,ticket,request.env.request_uri,request.url)
+                        (redir,status,ticket,
+                         urllib.quote_plus(request.env.request_uri),
+                         request.url)
                 return HTTP(303,
                             'You are being redirected <a href="%s">here</a>' % url,
                             Location=url)
@@ -257,7 +262,7 @@ def load(routes='routes.py', app=None, data=None, rdict=None):
                 return
             data = read_file(path).replace('\r\n','\n')
 
-        symbols = {}
+        symbols = dict(app=app)
         try:
             exec (data + '\n') in symbols
         except SyntaxError, e:
@@ -333,6 +338,7 @@ def load(routes='routes.py', app=None, data=None, rdict=None):
 
 regex_at = re.compile(r'(?<!\\)\$[a-zA-Z]\w*')
 regex_anything = re.compile(r'(?<!\\)\$anything')
+regex_redirect = re.compile(r'(\d+)->(.*)')
 
 def compile_regex(k, v):
     """
@@ -380,15 +386,15 @@ def load_routers(all_apps):
             all_apps.append(app)
             router = Storage(routers.BASE)   # new copy
             if app != 'BASE':
-                for key in routers[app].keys():
-                    if key in ROUTER_BASE_KEYS:
-                        raise SyntaxError, "BASE-only key '%s' in router '%s'" % (key, app)
+                keys = set(routers[app]).intersection(ROUTER_BASE_KEYS)
+                if keys:
+                    raise SyntaxError, "BASE-only key(s) %s in router '%s'" % (tuple(keys), app)
             router.update(routers[app])
             routers[app] = router
         router = routers[app]
-        for key in router.keys():
-            if key not in ROUTER_KEYS:
-                raise SyntaxError, "unknown key '%s' in router '%s'" % (key, app)
+        keys = set(router).difference(ROUTER_KEYS)
+        if keys:
+            raise SyntaxError, "unknown key(s) %s in router '%s'" % (tuple(keys), app)
         if not router.controllers:
             router.controllers = set()
         elif not isinstance(router.controllers, str):
@@ -397,6 +403,16 @@ def load_routers(all_apps):
             router.languages = set(router.languages)
         else:
             router.languages = set()
+        if router.functions:
+            if isinstance(router.functions, (set, tuple, list)):
+                functions = set(router.functions)
+                if isinstance(router.default_function, str):
+                    functions.add(router.default_function)  # legacy compatibility
+                router.functions = { router.default_controller: functions }
+            for controller in router.functions:
+                router.functions[controller] = set(router.functions[controller])
+        else:
+            router.functions = dict()
         if app != 'BASE':
             for base_only in ROUTER_BASE_KEYS:
                 router.pop(base_only, None)
@@ -412,16 +428,6 @@ def load_routers(all_apps):
             if router.controllers:
                 router.controllers.add('static')
                 router.controllers.add(router.default_controller)
-            if router.functions:
-                if isinstance(router.functions, (set, tuple, list)):
-                    functions = set(router.functions)
-                    if isinstance(router.default_function, str):
-                        functions.add(router.default_function)  # legacy compatibility
-                    router.functions = { router.default_controller: functions }
-                for controller in router.functions:
-                    router.functions[controller] = set(router.functions[controller])
-            else:
-                router.functions = dict()
 
     if isinstance(routers.BASE.applications, str) and routers.BASE.applications == 'ALL':
         routers.BASE.applications = list(all_apps)
@@ -509,6 +515,9 @@ def regex_filter_in(e):
     e['WEB2PY_ORIGINAL_URI'] = e['PATH_INFO'] + (query and ('?' + query) or '')
     if thread.routes.routes_in:
         path = regex_uri(e, thread.routes.routes_in, "routes_in", e['PATH_INFO'])
+        rmatch = regex_redirect.match(path)
+        if rmatch:
+            raise HTTP(int(rmatch.group(1)),location=rmatch.group(2))
         items = path.split('?', 1)
         e['PATH_INFO'] = items[0]
         if len(items) > 1:
@@ -892,6 +901,7 @@ class MapUrlIn(object):
         self.map_hyphen = self.router.map_hyphen
         self.exclusive_domain = self.router.exclusive_domain
         self._acfe_match = self.router._acfe_match
+        self.file_match = self.router.file_match
         self._file_match = self.router._file_match
         self._args_match = self.router._args_match
 
@@ -946,7 +956,18 @@ class MapUrlIn(object):
         if self.controller != 'static':
             return None
         file = '/'.join(self.args)
-        if not self.router._file_match.match(file):
+        if len(self.args) == 0:
+            bad_static = True   # require a file name
+        elif '/' in self.file_match:
+            # match the path
+            bad_static = not self.router._file_match.match(file)
+        else:
+            # match path elements
+            bad_static = False
+            for name in self.args:
+                bad_static = bad_static or name in ('', '.', '..') or not self.router._file_match.match(name)
+        if bad_static:
+            log_rewrite('bad static path=%s' % file)
             raise HTTP(400, thread.routes.error_message % 'invalid request',
                        web2py_error='invalid static file')
         #
@@ -1016,13 +1037,16 @@ class MapUrlIn(object):
         self.request.args = self.args
         if self.language:
             self.request.uri_language = self.language
-        uri = '/%s/%s/%s' % (self.application, self.controller, self.function)
+        uri = '/%s/%s' % (self.controller, self.function)
+        app = self.application
         if self.map_hyphen:
             uri = uri.replace('_', '-')
+            app = app.replace('_', '-')
         if self.extension != 'html':
             uri += '.' + self.extension
         if self.language:
             uri = '/%s%s' % (self.language, uri)
+        uri = '/%s%s' % (app, uri)
         uri += self.args and urllib.quote('/' + '/'.join([str(x) for x in self.args])) or ''
         uri += (self.query and ('?' + self.query) or '')
         self.env['REQUEST_URI'] = uri
@@ -1060,6 +1084,7 @@ class MapUrlOut(object):
         self.env = env
         self.application = application
         self.controller = controller
+        self.is_static = (controller == 'static' or controller.startswith('static/'))
         self.function = function
         self.args = args
         self.other = other
@@ -1165,7 +1190,7 @@ class MapUrlOut(object):
         #  handle static as a special case
         #  (easier for external static handling)
         #
-        if self.controller == 'static' or self.controller.startswith('static/'):
+        if self.is_static:
             if not self.map_static:
                 self.omit_application = False
                 if self.language:
@@ -1183,10 +1208,14 @@ class MapUrlOut(object):
                 self.function = self.function.replace('_', '-')
         if not self.omit_application:
             acf += '/' + self.application
-        if not self.omit_language:
-            acf += '/' + self.language
-        if not self.omit_controller:
-            acf += '/' + self.controller
+        # handle case of flipping lang/static/file to static/lang/file for external rewrite
+        if self.is_static and self.map_static is False and not self.omit_language:
+            acf += '/' + self.controller + '/' + self.language
+        else:
+            if not self.omit_language:
+                acf += '/' + self.language
+            if not self.omit_controller:
+                acf += '/' + self.controller
         if not self.omit_function:
             acf += '/' + self.function
         if self.path_prefix:
@@ -1226,9 +1255,21 @@ def map_url_in(request, env, app=False):
     root_static_file = map.map_root_static() # handle root-static files
     if root_static_file:
         return (root_static_file, map.env)
-    map.map_language()
-    map.map_controller()
+    # handle mapping of lang/static to static/lang in externally-rewritten URLs
+    # in case we have to handle them ourselves
+    if map.languages and map.map_static is False and map.arg0 == 'static' and map.args(1) in map.languages:
+        if 'es' in map.languages:
+            print 'handle static/lang %s' % map.args(1)
+        map.map_controller()
+        map.map_language()
+    else:
+        if 'es' in map.languages:
+            print 'NO handle static/lang %s' % map.args(1)
+        map.map_language()
+        map.map_controller()
     static_file = map.map_static()
+    if 'es' in map.languages:
+        print 'static_file=%s' % static_file
     if static_file:
         return (static_file, map.env)
     map.map_function()
@@ -1270,6 +1311,7 @@ def get_effective_router(appname):
     if not routers or appname not in routers:
         return None
     return Storage(routers[appname])  # return a copy
+
 
 
 

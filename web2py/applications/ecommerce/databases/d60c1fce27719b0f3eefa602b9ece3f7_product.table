@@ -11,7 +11,7 @@ p6
 I3
 sS'sql'
 p7
-S'INTEGER REFERENCES category(id) ON DELETE CASCADE'
+S'INTEGER REFERENCES category (id) ON DELETE CASCADE'
 p8
 ssS'origin'
 p9
@@ -67,16 +67,16 @@ I11
 sg7
 S'CHAR(512)'
 p27
-ssS'featured'
+ssS'qtd'
 p28
 (dp29
 g4
-S'boolean'
+S'integer'
 p30
 sg6
-I12
+I5
 sg7
-S'CHAR(1)'
+S'INTEGER NOT NULL'
 p31
 ssS'unit_price'
 p32
@@ -88,37 +88,37 @@ I7
 sg7
 S'DOUBLE'
 p34
-ssS'id'
+ssS'thumbnail'
 p35
 (dp36
-g4
-S'id'
-p37
-sg6
-I1
-sg7
-S'INTEGER PRIMARY KEY AUTOINCREMENT'
-p38
-ssS'qtd'
-p39
-(dp40
-g4
-S'integer'
-p41
-sg6
-I5
-sg7
-S'INTEGER NOT NULL'
-p42
-ssS'thumbnail'
-p43
-(dp44
 g4
 g23
 sg6
 I10
 sg7
 S'CHAR(512)'
+p37
+ssS'featured'
+p38
+(dp39
+g4
+S'boolean'
+p40
+sg6
+I12
+sg7
+S'CHAR(1)'
+p41
+ssS'id'
+p42
+(dp43
+g4
+S'id'
+p44
+sg6
+I1
+sg7
+S'INTEGER PRIMARY KEY AUTOINCREMENT'
 p45
 ssS'name'
 p46

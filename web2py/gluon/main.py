@@ -28,6 +28,8 @@ import socket
 import tempfile
 import random
 import string
+import urllib2
+
 from fileutils import abspath, write_file, parse_version
 from settings import global_settings
 from admin import add_path_first, create_missing_folders, create_missing_app_folders
@@ -51,15 +53,7 @@ from custom_import import custom_import_install
 #  The two are identical unless web2py_path is changed via the web2py.py -f folder option
 #  main.web2py_path is the same as applications_parent (for backward compatibility)
 
-if not hasattr(os, 'mkdir'):
-    global_settings.db_sessions = True
-if global_settings.db_sessions is not True:
-    global_settings.db_sessions = set()
-global_settings.gluon_parent = os.environ.get('web2py_path', os.getcwd())
-global_settings.applications_parent = global_settings.gluon_parent
 web2py_path = global_settings.applications_parent # backward compatibility
-global_settings.app_folders = set()
-global_settings.debugging = False
 
 custom_import_install(web2py_path)
 
@@ -68,6 +62,13 @@ create_missing_folders()
 # set up logging for subsequent imports
 import logging
 import logging.config
+
+# This needed to prevent exception on Python 2.5:
+# NameError: name 'gluon' is not defined
+# See http://bugs.python.org/issue1436
+import gluon.messageboxhandler
+logging.gluon = gluon
+
 logpath = abspath("logging.conf")
 if os.path.exists(logpath):
     logging.config.fileConfig(abspath("logging.conf"))
@@ -80,13 +81,14 @@ from http import HTTP, redirect
 from globals import Request, Response, Session
 from compileapp import build_environment, run_models_in, \
     run_controller_in, run_view_in
-from fileutils import copystream
+from fileutils import copystream, parse_version
 from contenttype import contenttype
 from dal import BaseAdapter
 from settings import global_settings
 from validators import CRYPT
 from cache import Cache
-from html import URL as Url
+from html import URL as Url, xmlescape
+from utils import is_valid_ip_address
 import newcron
 import rewrite
 
@@ -100,10 +102,15 @@ requests = 0    # gc timer
 # pattern used to validate client address
 regex_client = re.compile('[\w\-:]+(\.[\w\-]+)*\.?')  # ## to account for IPV6
 
-version_info = open(abspath('VERSION', gluon=True), 'r')
-web2py_version = parse_version(version_info.read().strip())
-version_info.close()
-global_settings.web2py_version = web2py_version
+try:
+    version_info = open(os.path.join(global_settings.gluon_parent, 'VERSION'), 'r')
+    raw_version_string = version_info.read().strip()
+    version_info.close()
+    global_settings.web2py_version = parse_version(raw_version_string)
+except:
+    raise RuntimeError, "Cannot determine web2py version"
+
+web2py_version = global_settings.web2py_version
 
 try:
     import rocket
@@ -272,7 +279,10 @@ def parse_get_post_vars(request, environ):
         request.vars[key] = request.get_vars[key]
 
     # parse POST variables on POST, PUT, BOTH only in post_vars
-    request.body = copystream_progress(request) ### stores request body
+    try:
+        request.body = copystream_progress(request) ### stores request body
+    except IOError:
+        raise HTTP(400,"Bad Request - HTTP body is incomplete")
     if (request.body and request.env.request_method in ('POST', 'PUT', 'BOTH')):
         dpost = cgi.FieldStorage(fp=request.body,environ=environ,keep_blank_values=1)
         # The same detection used by FieldStorage to detect multipart POSTs
@@ -390,9 +400,13 @@ def wsgibase(environ, responder):
 
                 local_hosts = [http_host,'::1','127.0.0.1','::ffff:127.0.0.1']
                 if not global_settings.web2py_runtime_gae:
-                    local_hosts += [socket.gethostname(),
-                                    socket.gethostbyname(http_host)]
+                    local_hosts.append(socket.gethostname())
+                    try: local_hosts.append(socket.gethostbyname(http_host))
+                    except socket.gaierror: pass
                 request.client = get_client(request.env)
+                if not is_valid_ip_address(request.client):
+                    raise HTTP(400,"Bad Request (request.client=%s)" % \
+                                   request.client)
                 request.folder = abspath('applications',
                                          request.application) + os.sep
                 x_req_with = str(request.env.http_x_requested_with).lower()
@@ -430,7 +444,7 @@ def wsgibase(environ, responder):
                                    web2py_error='invalid application')
                 elif not request.is_local and \
                         os.path.exists(os.path.join(request.folder,'DISABLED')):
-                    raise HTTP(200, "<html><body><h1>Down for maintenance</h1></body></html>")
+                    raise HTTP(503, "<html><body><h1>Temporarily down for maintenance</h1></body></html>")
                 request.url = Url(r=request, args=request.args,
                                        extension=request.raw_extension)
 
@@ -515,8 +529,10 @@ def wsgibase(environ, responder):
 
                 if response.do_not_commit is True:
                     BaseAdapter.close_all_instances(None)
-                elif response._custom_commit:
-                    response._custom_commit()
+                # elif response._custom_commit:
+                #     response._custom_commit()
+                elif response.custom_commit:
+                    BaseAdapter.close_all_instances(response.custom_commit)
                 else:
                     BaseAdapter.close_all_instances('commit')
 
@@ -532,11 +548,13 @@ def wsgibase(environ, responder):
                 # ##################################################
 
                 if request.cid:
-
-                    if response.flash and not 'web2py-component-flash' in http_response.headers:
+                    if response.flash and not 'web2py-component-flash' \
+                            in http_response.headers:
                         http_response.headers['web2py-component-flash'] = \
-                            str(response.flash).replace('\n','')
-                    if response.js and not 'web2py-component-command' in http_response.headers:
+                            urllib2.quote(xmlescape(response.flash)\
+                                              .replace('\n',''))
+                    if response.js and not 'web2py-component-command' \
+                            in http_response.headers:
                         http_response.headers['web2py-component-command'] = \
                             response.js.replace('\n','')
                 if session._forget and \
@@ -829,6 +847,7 @@ class HttpServer(object):
             os.unlink(self.pid_filename)
         except:
             pass
+
 
 
 

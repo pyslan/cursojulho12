@@ -19,6 +19,9 @@ from fileutils import read_file, write_file, parse_version
 from restricted import RestrictedError
 from settings import global_settings
 
+if not global_settings.web2py_runtime_gae:
+    import site
+
 def apath(path='', r=None):
     """
     Builds a path inside an application folder
@@ -38,7 +41,7 @@ def apath(path='', r=None):
     return os.path.join(opath, path).replace('\\', '/')
 
 
-def app_pack(app, request):
+def app_pack(app, request, raise_ex=False):
     """
     Builds a w2p package for the application
 
@@ -59,11 +62,13 @@ def app_pack(app, request):
         filename = apath('../deposit/%s.w2p' % app, request)
         w2p_pack(filename, apath(app, request))
         return filename
-    except Exception:
+    except Exception, e:
+        if raise_ex:
+            raise
         return False
 
 
-def app_pack_compiled(app, request):
+def app_pack_compiled(app, request, raise_ex=False):
     """
     Builds a w2p bytecode-compiled package for the application
 
@@ -84,7 +89,9 @@ def app_pack_compiled(app, request):
         filename = apath('../deposit/%s.w2p' % app, request)
         w2p_pack(filename, apath(app, request), compiled=True)
         return filename
-    except Exception:
+    except Exception, e:
+        if raise_ex:
+            raise
         return None
 
 def app_cleanup(app, request):
@@ -430,6 +437,8 @@ def upgrade(request, url='http://web2py.com'):
 
 def add_path_first(path):
     sys.path = [path]+[p for p in sys.path if (not p==path and not p==(path+'/'))]
+    if not global_settings.web2py_runtime_gae:
+        site.addsitedir(path)
 
 def create_missing_folders():
     if not global_settings.web2py_runtime_gae:
@@ -450,6 +459,7 @@ def create_missing_app_folders(request):
                 if not os.path.exists(path):
                     os.mkdir(path)
             global_settings.app_folders.add(request.folder)
+
 
 
 

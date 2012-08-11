@@ -9,12 +9,12 @@ response.title = '%s %s' % (_f, '/'.join(request.args))
 response.subtitle = 'admin'
 response.menu = [(T('Site'), _f == 'site', URL(_a,'default','site'))]
 
-if request.args:
-    _t = request.args[0]
+if request.vars.app or request.args:
+    _t = request.vars.app or request.args[0]
     response.menu.append((T('Edit'), _c == 'default' and _f == 'design',
                          URL(_a,'default','design',args=_t)))
     response.menu.append((T('About'), _c == 'default' and _f == 'about',
-                         URL(_a,'default','about',args=_t)))
+                         URL(_a,'default','about',args=_t,)))
     response.menu.append((T('Errors'), _c == 'default' and _f == 'errors',
                          URL(_a,'default','errors',args=_t)))
     response.menu.append((T('Versioning'),
@@ -22,7 +22,7 @@ if request.args:
                           URL(_a,'mercurial','commit',args=_t)))
 
 if not session.authorized:
-    response.menu = [(T('Login'), True, '')]
+    response.menu = [(T('Login'), True, URL('site'))]
 else:
     response.menu.append((T('Logout'), False,
                           URL(_a,'default',f='logout')))

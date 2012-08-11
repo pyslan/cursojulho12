@@ -26,12 +26,29 @@ function on_error() {
     jQuery("input[name='saved_on']").val('communication error');
 }
 
-function doClickSave() {
+function getData() {
     try {
-	var data = eamy.instances[0].getText();
+        var data = window.ace_editor.getSession().getValue();
     } catch(e) {
-	var data = area.textarea.value;
+        try {
+            var data = eamy.instances[0].getText();
+        } catch(e) {
+            var data = area.textarea.value;
+        }
     }
+    return data;
+}
+
+function doHighlight(highlight) {
+	try {
+		window.ace_editor.gotoLine(highlight.lineno);
+	} catch(e) {
+		editAreaLoader.setSelectionRange('body', highlight.start, highlight.end);
+	}					
+}
+
+function doClickSave() {
+    var data = getData();
     var dataForPost = prepareMultiPartPOST(new Array(
 	prepareDataForSave('data', data),
 	prepareDataForSave('file_hash', jQuery("input[name='file_hash']").val()),
@@ -55,7 +72,7 @@ function doClickSave() {
 
 	        // show flash message (if any)
 	        var flash=xhr.getResponseHeader('web2py-component-flash');
-            if (flash) jQuery('.flash').html(flash).slideDown();
+            if (flash) jQuery('.flash').html(decodeURIComponent(flash)).slideDown();
             else jQuery('.flash').hide();
 
             // reenable disabled submit button
@@ -71,7 +88,7 @@ function doClickSave() {
 			    jQuery("input[name='file_hash']").val(json.file_hash);
 			    jQuery("input[name='saved_on']").val(json.saved_on);
 			    if (json.highlight) {
-			        editAreaLoader.setSelectionRange('body', json.highlight.start, json.highlight.end);
+					doHighlight(json.highlight);
 			    } else {
 			        jQuery("input[name='saved_on']").attr('style','background-color:#99FF99');
 			        jQuery(".flash").delay(1000).fadeOut('slow');
@@ -95,18 +112,30 @@ function doClickSave() {
 	return false;
 }
 
-function doToggleBreakpoint(filename, url) {
+function getSelectionRange() {
+    var sel;
     try {
-	var data = eamy.instances[0].getText();
+        sel = {};
+        range = window.ace_editor.getSelectionRange();
+        // passing the line number directly, no need to read the text
+        sel['start'] = range.start.row;
+        sel['end'] = range.end.row;
+        sel['data'] = '';
     } catch(e) {
-	var data = area.textarea.value;
-	var sel = editAreaLoader.getSelectionRange('body');
+        // passing offset, needs the text to calculate the line:
+        sel = editAreaLoader.getSelectionRange('body');
+        sel['data'] = getData();
     }
+    return sel;
+}
+
+function doToggleBreakpoint(filename, url) {
+	var sel = getSelectionRange();
     var dataForPost = prepareMultiPartPOST(new Array(
 	prepareDataForSave('filename', filename),
 	prepareDataForSave('sel_start', sel["start"]),
 	prepareDataForSave('sel_end', sel["end"]),
-	prepareDataForSave('data', data)));
+	prepareDataForSave('data', sel['data'])));
 	jQuery.ajax({
 	  type: "POST",
 	  contentType: 'multipart/form-data;boundary="' + dataForPost[1] + '"',
@@ -121,7 +150,7 @@ function doToggleBreakpoint(filename, url) {
 
 	        // show flash message (if any)
 	        var flash=xhr.getResponseHeader('web2py-component-flash');
-            if (flash) jQuery('.flash').html(flash).slideDown();
+            if (flash) jQuery('.flash').html(decodeURIComponent(flash)).slideDown();
             else jQuery('.flash').hide();
 		    try {
 			if (json.error) {

@@ -26,3 +26,8 @@ config.mail.login = "usuario:senha"
 
 # definir nivel de acesso a views genericas
 # criar/importar funcoes globais
+
+response.title = "Ecommerce do Bruno | CursodePython.com.br"
+response.description = "Ecommerce"
+
+response.generic_patterns = ['*']

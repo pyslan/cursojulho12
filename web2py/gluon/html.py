@@ -15,19 +15,18 @@ import types
 import urllib
 import base64
 import sanitizer
-import rewrite
 import itertools
 import decoder
 import copy_reg
 import cPickle
 import marshal
+
 from HTMLParser import HTMLParser
 from htmlentitydefs import name2codepoint
-from contrib.markmin.markmin2html import render
 
 from storage import Storage
+from utils import web2py_uuid, simple_hash, compare
 from highlight import highlight
-from utils import web2py_uuid, hmac_hash
 
 regex_crlf = re.compile('\r|\n')
 
@@ -81,6 +80,7 @@ __all__ = [
     'OPTGROUP',
     'SELECT',
     'SPAN',
+    'STRONG',
     'STYLE',
     'TABLE',
     'TAG',
@@ -191,7 +191,7 @@ def URL(
 
         >>> str(URL(a='a', c='c', f='f', vars={'id' : '%(id)d' }, url_encode=True))
         '/a/c/f?id=%25%28id%29d'
-        
+
         >>> str(URL(a='a', c='c', f='f', anchor='%(id)d', url_encode=False))
         '/a/c/f#%(id)d'
 
@@ -227,6 +227,8 @@ def URL(
     :raises SyntaxError: when a CRLF is found in the generated url
     """
 
+    from rewrite import url_out # done here in case used not-in web2py
+
     if args in (None,[]): args = []
     vars = vars or {}
     application = None
@@ -260,18 +262,25 @@ def URL(
             else:
                 raise SyntaxError, 'when calling URL, function or function name required'
         elif '/' in f:
+            if f.startswith("/"):
+                f = f[1:]
             items = f.split('/')
             function = f = items[0]
             args = items[1:] + args
         else:
             function = f
+
+        # if the url gets a static resource, don't force extention
+        if controller == 'static':
+            extension = None
+
         if '.' in function:
-            function, extension = function.split('.', 1)
+            function, extension = function.rsplit('.', 1)
 
     function2 = '%s.%s' % (function,extension or 'html')
 
     if not (application and controller and function):
-        raise SyntaxError, 'not enough information to build the url'
+        raise SyntaxError, 'not enough information to build the url (%s %s %s)' % (application, controller, function)
 
     if args:
         if url_encode:
@@ -318,8 +327,7 @@ def URL(
 
         # re-assembling the same way during hash authentication
         message = h_args + '?' + urllib.urlencode(sorted(h_vars))
-
-        sig = hmac_hash(message, hmac_key, digest_alg='sha1', salt=salt)
+        sig = simple_hash(message, hmac_key or '',salt or '',digest_alg='sha1')
         # add the signature into vars
         list_vars.append(('_signature', sig))
 
@@ -327,7 +335,7 @@ def URL(
         if url_encode:
             other += '?%s' % urllib.urlencode(list_vars)
         else:
-            other += '?%s' % '&'.join([var[0]+'='+var[1] for var in list_vars])
+            other += '?%s' % '&'.join(['%s=%s' % var[:2] for var in list_vars])
     if anchor:
         if url_encode:
             other += '#' + urllib.quote(str(anchor))
@@ -338,8 +346,8 @@ def URL(
 
     if regex_crlf.search(join([application, controller, function, other])):
         raise SyntaxError, 'CRLF Injection Detected'
-    url = rewrite.url_out(r, env, application, controller, function,
-                          args, other, scheme, host, port)
+    url = url_out(r, env, application, controller, function,
+                  args, other, scheme, host, port)
     return url
 
 
@@ -438,7 +446,7 @@ def verifyURL(request, hmac_key=None, hash_vars=True, salt=None, user_signature=
     message = h_args + '?' + urllib.urlencode(sorted(h_vars))
 
     # hash with the hmac_key provided
-    sig = hmac_hash(message, str(hmac_key), digest_alg='sha1', salt=salt)
+    sig = simple_hash(message, str(hmac_key), salt or '', digest_alg='sha1')
 
     # put _signature back in get_vars just in case a second call to URL.verify is performed
     # (otherwise it'll immediately return false)
@@ -446,7 +454,8 @@ def verifyURL(request, hmac_key=None, hash_vars=True, salt=None, user_signature=
 
     # return whether or not the signature in the request matched the one we just generated
     # (I.E. was the message the same as the one we originally signed)
-    return original_sig == sig
+
+    return compare(original_sig, sig)
 
 URL.verify = verifyURL
 
@@ -462,7 +471,18 @@ class XmlComponent(object):
 
     def xml(self):
         raise NotImplementedError
-
+    def __mul__(self,n):
+        return CAT(*[self for i in range(n)])
+    def __add__(self,other):
+        if isinstance(self,CAT):
+            components = self.components
+        else:
+            components = [self]
+        if isinstance(other,CAT):
+            components += other.components
+        else:
+            components += [other]
+        return CAT(*components)
 
 class XML(XmlComponent):
     """
@@ -495,9 +515,10 @@ class XML(XmlComponent):
             'img/',
             'h1','h2','h3','h4','h5','h6',
             'table','tr','td','div',
+            'strong',
             ],
         allowed_attributes = {
-            'a': ['href', 'title'],
+            'a': ['href', 'title', 'target'],
             'img': ['src', 'alt'],
             'blockquote': ['type'],
             'td': ['colspan'],
@@ -777,7 +798,7 @@ class DIV(XmlComponent):
                 c.latest = self.latest
                 c.session = self.session
                 c.formname = self.formname
-                c['hideerror']=hideerror
+                if hideerror: c['hideerror'] = hideerror
                 newstatus = c._traverse(status,hideerror) and newstatus
 
         # for input, textarea, select, option
@@ -836,7 +857,7 @@ class DIV(XmlComponent):
 
         # get the xml for the inner components
         co = join([xmlescape(component) for component in
-                     self.components])
+                   self.components])
 
         return (fa, co)
 
@@ -1312,6 +1333,11 @@ class P(DIV):
         return text
 
 
+class STRONG(DIV):
+
+    tag = 'strong'
+
+
 class B(DIV):
 
     tag = 'b'
@@ -1341,10 +1367,12 @@ class A(DIV):
                 (self['component'],self['target'] or '',d)
             self['_href'] = self['_href'] or '#null'
         elif self['callback']:
+            returnfalse="var e = arguments[0] || window.event; e.cancelBubble=true; if (e.stopPropagation) e.stopPropagation();"
             if d:
-                self['_onclick']="if(confirm(w2p_ajax_confirm_message||'Are you sure you want o delete this object?')){ajax('%s',[],'%s');%s};return false;" % (self['callback'],self['target'] or '',d)
+                self['_onclick']="if(confirm(w2p_ajax_confirm_message||'Are you sure you want o delete this object?')){ajax('%s',[],'%s');%s};%s" % \
+                    (self['callback'],self['target'] or '',d, returnfalse)
             else:
-                self['_onclick']="ajax('%s',[],'%s');%sreturn false;" % \
+                self['_onclick']="ajax('%s',[],'%s');%sreturn false" % \
                     (self['callback'],self['target'] or '',d)
             self['_href'] = self['_href'] or '#null'
         elif self['cid']:
@@ -1417,7 +1445,7 @@ class CODE(DIV):
         link = self['link']
         counter = self.attributes.get('counter', 1)
         highlight_line = self.attributes.get('highlight_line', None)
-        context_lines = self.attributes.get('context_lines', None) 
+        context_lines = self.attributes.get('context_lines', None)
         styles = self['styles'] or {}
         return highlight(
             join(self.components),
@@ -1640,7 +1668,7 @@ class INPUT(DIV):
                 self['_checked'] = 'checked'
             else:
                 self['_checked'] = None
-        elif t == 'text' or t == 'hidden':
+        elif not t == 'submit':
             if value is None:
                 self['value'] = _value
             else:
@@ -1652,9 +1680,16 @@ class INPUT(DIV):
                 and self.errors.get(name, None) \
                 and self['hideerror'] != True:
             self['_class'] = (self['_class'] and self['_class']+' ' or '')+'invalidinput'
-            return DIV.xml(self) + DIV(self.errors[name], _class='error',
-                errors=None, _id='%s__error' % name).xml()
+            return DIV.xml(self) + DIV(
+                DIV(
+                    self.errors[name], _class='error',
+                    errors=None, _id='%s__error' % name),
+                _class='error_wrapper').xml()
         else:
+            if self['_class'] and self['_class'].endswith('invalidinput'):
+                self['_class'] = self['_class'][:-12]
+                if self['_class'] == '':
+                    self['_class'] = None
             return DIV.xml(self)
 
 
@@ -1800,6 +1835,9 @@ class FORM(DIV):
         self.latest = Storage()
         self.accepted = None # none for not submitted
 
+    def assert_status(self, status, request_vars):
+        return status
+
     def accepts(
         self,
         request_vars,
@@ -1839,6 +1877,7 @@ class FORM(DIV):
                 status = False
                 self.record_changed = True
         status = self._traverse(status,hideerror)
+        status = self.assert_status(status, request_vars)
         if onvalidation:
             if isinstance(onvalidation, dict):
                 onsuccess = onvalidation.get('onsuccess', None)
@@ -1994,6 +2033,29 @@ class FORM(DIV):
         self.validate(**kwargs)
         return self
 
+    REDIRECT_JS = "window.location='%s';return false"
+    
+    def add_button(self,value,url,_class=None):
+        self[0][-1][1].append(INPUT(_type="button",_value=value,_class=_class,
+                                    _onclick=self.REDIRECT_JS % url))
+                                    
+
+
+    @staticmethod
+    def confim(text='OK',buttons=None,hidden=None):
+        if not buttons: buttons = {}
+        if not hidden: hidden={}
+        inputs = [INPUT(_type='button',
+                        _value=name,
+                        _onclick=FORM.REDIRECT_JS % link) \
+                      for name,link in buttons.items()]
+        inputs += [INPUT(_type='hidden',
+                         _name=name,
+                         _value=value)
+                   for name,value in hidden.items()]        
+        form = FORM(INPUT(_type='submit',_value=text),*inputs)
+        form.process()
+        return form
 
 class BEAUTIFY(DIV):
 
@@ -2001,7 +2063,7 @@ class BEAUTIFY(DIV):
     example::
 
         >>> BEAUTIFY(['a', 'b', {'hello': 'world'}]).xml()
-        '<div><table><tr><td><div>a</div></td></tr><tr><td><div>b</div></td></tr><tr><td><div><table><tr><td style="font-weight:bold;">hello</td><td valign="top">:</td><td><div>world</div></td></tr></table></div></td></tr></table></div>'
+        '<div><table><tr><td><div>a</div></td></tr><tr><td><div>b</div></td></tr><tr><td><div><table><tr><td style="font-weight:bold;vertical-align:top">hello</td><td valign="top">:</td><td><div>world</div></td></tr></table></div></td></tr></table></div>'
 
     turns any list, dictionary, etc into decent looking html.
     Two special attributes are
@@ -2031,6 +2093,9 @@ class BEAUTIFY(DIV):
         if level == 0:
             return
         for c in self.components:
+            if hasattr(c,'value') and not callable(c.value):
+                if c.value:
+                    components.append(c.value)
             if hasattr(c,'xml') and callable(c.xml):
                 components.append(c)
                 continue
@@ -2113,6 +2178,8 @@ class MENU(DIV):
                 li = LI(DIV(name))
             elif link:
                 li = LI(A(name, _href=link))
+            elif not link and isinstance(name,A):
+                li = LI(name)
             else:
                 li = LI(A(name, _href='#',
                           _onclick='javascript:void(0);return false;'))
@@ -2130,12 +2197,13 @@ class MENU(DIV):
 
     def serialize_mobile(self, data, select=None, prefix=''):
         if not select:
-            select = SELECT()
+            select = SELECT(**self.attributes)
         for item in data:
-            if item[2]:
-                select.append(OPTION(CAT(prefix, item[0]), _value=item[2], _selected=item[1]))
-            if len(item)>3 and len(item[3]):
-                self.serialize_mobile(item[3], select, prefix = CAT(prefix, item[0], '/'))
+            if len(item) <= 4 or item[4] == True:
+                if item[2]:
+                    select.append(OPTION(CAT(prefix, item[0]), _value=item[2], _selected=item[1]))
+                    if len(item)>3 and len(item[3]):
+                        self.serialize_mobile(item[3], select, prefix = CAT(prefix, item[0], '/'))
         select['_onchange'] = 'window.location=this.value'
         return select
 
@@ -2187,7 +2255,7 @@ def test():
     >>> print form.accepts({'myvar':'34'}, formname=None)
     False
     >>> print form.xml()
-    <form action="" enctype="multipart/form-data" method="post"><input name="myvar" type="text" value="34" /><div class="error" id="myvar__error">invalid expression</div></form>
+    <form action="" enctype="multipart/form-data" method="post"><input class="invalidinput" name="myvar" type="text" value="34" /><div class="error" id="myvar__error">invalid expression</div></form>
     >>> print form.accepts({'myvar':'4'}, formname=None, keepvalues=True)
     True
     >>> print form.xml()
@@ -2201,7 +2269,7 @@ def test():
     >>> print form.accepts({'myvar':'as df'}, formname=None)
     False
     >>> print form.xml()
-    <form action=\"\" enctype=\"multipart/form-data\" method=\"post\"><input name=\"myvar\" type=\"text\" value=\"as df\" /><div class=\"error\" id=\"myvar__error\">only alphanumeric!</div></form>
+    <form action=\"\" enctype=\"multipart/form-data\" method=\"post\"><input class=\"invalidinput\" name=\"myvar\" type=\"text\" value=\"as df\" /><div class=\"error\" id=\"myvar__error\">only alphanumeric!</div></form>
     >>> session={}
     >>> form=FORM(INPUT(value=\"Hello World\", _name=\"var\", requires=IS_MATCH('^\w+$')))
     >>> if form.accepts({}, session,formname=None): print 'passed'
@@ -2252,10 +2320,10 @@ class web2pyHTMLParser(HTMLParser):
                 data = data.decode('latin1')
         self.parent.append(data.encode('utf8','xmlcharref'))
     def handle_charref(self,name):
-        if name[1].lower()=='x':
-            self.parent.append(unichr(int(name[2:], 16)).encode('utf8'))
+        if name.startswith('x'):
+            self.parent.append(unichr(int(name[1:], 16)).encode('utf8'))
         else:
-            self.parent.append(unichr(int(name[1:], 10)).encode('utf8'))
+            self.parent.append(unichr(int(name)).encode('utf8'))
     def handle_entityref(self,name):
         self.parent.append(unichr(name2codepoint[name]).encode('utf8'))
     def handle_endtag(self, tagname):
@@ -2312,17 +2380,34 @@ class MARKMIN(XmlComponent):
     """
     For documentation: http://web2py.com/examples/static/markmin.html
     """
-    def __init__(self, text, extra=None, allowed=None, sep='p'):
+    def __init__(self, text, extra=None, allowed=None, sep='p',
+                 url=None, environment=None, latex='google',
+                 autolinks='default',
+                 protolinks='default',
+                 class_prefix='',
+                 id_prefix='markmin_'):                 
         self.text = text
         self.extra = extra or {}
         self.allowed = allowed or {}
         self.sep = sep
+        self.url = URL if url==True else url
+        self.environment = environment
+        self.latex = latex
+        self.autolinks = autolinks
+        self.protolinks = protolinks
+        self.class_prefix = class_prefix
+        self.id_prefix = id_prefix
 
     def xml(self):
         """
         calls the gluon.contrib.markmin render function to convert the wiki syntax
         """
-        return render(self.text,extra=self.extra,allowed=self.allowed,sep=self.sep)
+        from contrib.markmin.markmin2html import render
+        return render(self.text,extra=self.extra,
+                      allowed=self.allowed,sep=self.sep,latex=self.latex,
+                      URL=self.url, environment=self.environment,
+                      autolinks=self.autolinks,protolinks=self.protolinks,
+                      class_prefix=self.class_prefix,id_prefix=self.id_prefix)
 
     def __str__(self):
         return self.xml()
@@ -2344,6 +2429,7 @@ class MARKMIN(XmlComponent):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+
 
 
 

@@ -1,0 +1,13 @@
+{{def get_thumbnails(products):}}
+	<ul class="thumbnails">
+	{{for product in products:}}	
+		<li class="span3">
+		<div class="thumbnail">
+		  <img src="http://placehold.it/260x180" alt="">
+		  <h4>{{=product.name}}</h4>
+		  <p><span>{{=product.unit_price}}</span></p>
+		</div>
+		</li>
+	{{pass}}
+	</ul>
+{{return}}

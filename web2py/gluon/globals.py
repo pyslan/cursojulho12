@@ -36,6 +36,13 @@ import os
 import sys
 import traceback
 import threading
+import hmac
+import base64
+
+try:
+    from Crypto.Cipher import AES
+except ImportError:
+    from contrib import aes as AES
 
 try:
     from gluon.contrib.minify import minify
@@ -51,6 +58,8 @@ current = threading.local()  # thread-local storage for request-scope globals
 
 css_template = '<link href="%s" rel="stylesheet" type="text/css" />'
 js_template = '<script src="%s" type="text/javascript"></script>'
+coffee_template = '<script src="%s" type="text/coffee"></script>'
+less_template = '<link href="%s" rel="stylesheet/less" type="text/css" />'
 css_inline = '<style type="text/css">\n%s\n</style>'
 js_inline = '<script type="text/javascript">\n%s\n</script>'
 
@@ -109,7 +118,7 @@ class Request(Storage):
         for key,value in user_agent.items():
             if isinstance(value,dict): user_agent[key] = Storage(value)
         return user_agent
-        
+
     def requires_https(self):
         """
         If request comes in over HTTP, redirect it to HTTPS
@@ -117,7 +126,7 @@ class Request(Storage):
         """
         if not global_settings.cronjob and not self.is_https:
             redirect(URL(scheme='https', args=self.args, vars=self.vars))
-        
+
         current.session.secure()
 
     def restful(self):
@@ -211,9 +220,9 @@ class Response(Storage):
         return page
 
     def include_meta(self):
-        s = ''
+        s = '\n'
         for key,value in (self.meta or {}).items():
-            s += '<meta name="%s" content="%s" />' % (key,xmlescape(value))
+            s += '<meta name="%s" content="%s" />\n' % (key,xmlescape(value))
         self.write(s,escape=False)
 
     def include_files(self):
@@ -249,9 +258,11 @@ class Response(Storage):
         s = ''
         for item in files:
             if isinstance(item,str):
-                f = item.lower()
+                f = item.lower().split('?')[0]
                 if f.endswith('.css'):  s += css_template % item
                 elif f.endswith('.js'): s += js_template % item
+                elif f.endswith('.coffee'): s += coffee_template % item
+                elif f.endswith('.less'): s += less_template % item
             elif isinstance(item,(list,tuple)):
                 f = item[0]
                 if f=='css:inline':     s += css_inline % item[1]
@@ -318,7 +329,6 @@ class Response(Storage):
         downloads from http://..../download/filename
         """
 
-        import contenttype as c
         if not request.args:
             raise HTTP(404)
         name = request.args[-1]
@@ -332,7 +342,7 @@ class Response(Storage):
             (filename, stream) = field.retrieve(name)
         except IOError:
             raise HTTP(404)
-        self.headers['Content-Type'] = c.contenttype(name)
+        self.headers['Content-Type'] = contenttype(name)
         if attachment:
             self.headers['Content-Disposition'] = \
                 "attachment; filename=%s" % filename
@@ -405,6 +415,7 @@ class Session(Storage):
         migrate=True,
         separate = None,
         check_client=False,
+        cookie_key=None,
         ):
         """
         separate can be separate=lambda(session_name): session_name[-2:]
@@ -417,9 +428,30 @@ class Session(Storage):
         if not masterapp:
             masterapp = request.application
         response.session_id_name = 'session_id_%s' % masterapp.lower()
+                
+        # Load session data from cookie
+        
+        if cookie_key:
+            response.session_cookie_key = cookie_key
+            response.session_cookie_key2 = hashlib.md5(cookie_key).digest()
+            cookie_name = request.application.lower()+'_session_data'
+            response.session_cookie_name = cookie_name
+            if cookie_data in request.cookies:
+                cookie_value = request.cookies[cookie_name].value
+                cookie_parts = cookie_value.split(":")
+                enc = cookie_parts[2]
+                cipher = AES.new(cookie_key)
+                decrypted = cipher.decrypt(base64.b64decode(enc)).rstrip('{')
+                check = hmac.new(response.session_cookie_key2,enc).hexdigest()
+                if cookie_parts[0] == check:
+                    session_data = cPickle.loads(decrypted)
+                    self.update(session_data)
+            else:
+                return
 
         if not db:
-            if global_settings.db_sessions is True or masterapp in global_settings.db_sessions:
+            if global_settings.db_sessions is True \
+                    or masterapp in global_settings.db_sessions:
                 return
             response.session_new = False
             client = request.client and request.client.replace(':', '.')
@@ -437,11 +469,13 @@ class Session(Storage):
                     response.session_file = \
                         open(response.session_filename, 'rb+')
                     try:
-                        portalocker.lock(response.session_file,portalocker.LOCK_EX)
+                        portalocker.lock(response.session_file,
+                                         portalocker.LOCK_EX)
                         response.session_locked = True
                         self.update(cPickle.load(response.session_file))
                         response.session_file.seek(0)
-                        oc = response.session_filename.split('/')[-1].split('-')[0]
+                        oc = response.session_filename.split('/')[-1]\
+                            .split('-')[0]
                         if check_client and client!=oc:
                             raise Exception, "cookie attack"
                     finally:
@@ -455,7 +489,8 @@ class Session(Storage):
                 response.session_id = '%s-%s' % (client, uuid)
                 if separate:
                     prefix = separate(response.session_id)
-                    response.session_id = '%s/%s' % (prefix,response.session_id)
+                    response.session_id = '%s/%s' % \
+                        (prefix,response.session_id)
                 response.session_filename = \
                     os.path.join(up(request.folder), masterapp,
                                  'sessions', response.session_id)
@@ -488,16 +523,25 @@ class Session(Storage):
                     migrate=table_migrate,
                     )
             try:
+	
+			# Get session data out of the database
+			
+			# Key comes from the cookie
                 key = request.cookies[response.session_id_name].value
                 (record_id, unique_key) = key.split(':')
                 if record_id == '0':
                     raise Exception, 'record_id == 0'
+			# Select from database.
                 rows = db(table.id == record_id).select()
+
+			# Make sure the session data exists in the database
                 if len(rows) == 0 or rows[0].unique_key != unique_key:
                     raise Exception, 'No record'
 
                  # rows[0].update_record(locked=True)
 
+
+		    # Unpickle the data
                 session_data = cPickle.loads(rows[0].session_data)
                 self.update(session_data)
             except Exception:
@@ -536,8 +580,18 @@ class Session(Storage):
         self._close(response)
         self._forget = True
 
-    def _try_store_in_db(self, request, response):
+    def _try_store_in_cookie(self, request, response):
+        pad = lambda s: s + (32 - len(s) % 32) * '{'
+        data = cPickle.dumps(dict(self))
+        cipher = AES.new(response.session_cookie_key)
+        encrypted_data = base64.b64encode(cipher.encrypt(pad(data)))
+        signature = hmac.new(response.session_cookie_key2,encrypted_data)\
+            .hexdigest()
+        value = signature+':'+encrypted_data
+        response.cookies[response.session_cookie_name] = value
+        response.cookies[response.session_cookie_name]['path'] = '/'
 
+    def _try_store_in_db(self, request, response):
         # don't save if file-based sessions, no session id, or session being forgotten
         if not response.session_db or not response.session_id or self._forget:
             return

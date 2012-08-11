@@ -19,7 +19,7 @@ import struct
 import decimal
 import unicodedata
 from cStringIO import StringIO
-from utils import simple_hash, hmac_hash, web2py_uuid
+from utils import simple_hash, web2py_uuid, DIGEST_ALG_BY_SIZE
 
 __all__ = [
     'CLEANUP',
@@ -55,11 +55,16 @@ __all__ = [
     'IS_URL',
     ]
 
+try:
+    from globals import current
+    have_current = True
+except ImportError:
+    have_current = False
+
 def translate(text):
     if text is None:
         return None
-    elif isinstance(text,(str,unicode)):
-        from globals import current
+    elif isinstance(text,(str,unicode)) and have_current:
         if hasattr(current,'T'):
             return str(current.T(text))
     return str(text)
@@ -125,7 +130,7 @@ class IS_MATCH(Validator):
         ('hello', None)
 
         >>> IS_MATCH('hell')('hello')
-        ('hello', 'invalid expression')
+        ('hello', None)
 
         >>> IS_MATCH('hell.*', strict=False)('hello')
         ('hello', None)
@@ -134,10 +139,10 @@ class IS_MATCH(Validator):
         ('shello', 'invalid expression')
 
         >>> IS_MATCH('hello', search=True)('shello')
-        ('hello', None)
+        ('shello', None)
 
         >>> IS_MATCH('hello', search=True, strict=False)('shellox')
-        ('hello', None)
+        ('shellox', None)
 
         >>> IS_MATCH('.*hello.*', search=True, strict=False)('shellox')
         ('shellox', None)
@@ -258,12 +263,16 @@ class IS_LENGTH(Validator):
         self.error_message = error_message
 
     def __call__(self, value):
-        if isinstance(value, cgi.FieldStorage):
+        if value is None:
+            length = 0
+            if self.minsize <= length <= self.maxsize:
+                return (value, None)            
+        elif isinstance(value, cgi.FieldStorage):
             if value.file:
                 value.file.seek(0, os.SEEK_END)
                 length = value.file.tell()
                 value.file.seek(0, os.SEEK_SET)
-            else:
+            elif hasattr(value,'value'):
                 val = value.value
                 if val:
                     length = len(val)
@@ -350,15 +359,16 @@ class IS_IN_SET(Validator):
     def __call__(self, value):
         if self.multiple:
             ### if below was values = re.compile("[\w\-:]+").findall(str(value))
-            if isinstance(value, (str,unicode)):
-                values = [value]
+            if not value:
+                values = []
             elif isinstance(value, (tuple, list)):
                 values = value
-            elif not value:
-                values = []
+            else:
+                values = [value]
         else:
             values = [value]
-        failures = [x for x in values if not x in self.theset]
+        thestrset = [str(x) for x in self.theset]
+        failures = [x for x in values if not str(x) in thestrset]
         if failures and self.theset:
             if self.multiple and (value is None or value == ''):
                 return ([], None)
@@ -393,6 +403,7 @@ class IS_IN_DB(Validator):
         error_message='value not in database',
         orderby=None,
         groupby=None,
+        distinct=None,
         cache=None,
         multiple=False,
         zero='',
@@ -406,8 +417,7 @@ class IS_IN_DB(Validator):
             self.dbset = dbset()
         else:
             self.dbset = dbset
-        self.field = field
-        (ktable, kfield) = str(self.field).split('.')
+        (ktable, kfield) = str(field).split('.')
         if not label:
             label = '%%(%s)s' % kfield
         if isinstance(label,str):
@@ -429,6 +439,7 @@ class IS_IN_DB(Validator):
         self.theset = None
         self.orderby = orderby
         self.groupby = groupby
+        self.distinct = distinct
         self.cache = cache
         self.multiple = multiple
         self.zero = zero
@@ -448,7 +459,9 @@ class IS_IN_DB(Validator):
         if self.dbset.db._dbname != 'gae':
             orderby = self.orderby or reduce(lambda a,b:a|b,fields)
             groupby = self.groupby
-            dd = dict(orderby=orderby, groupby=groupby, cache=self.cache)
+            distinct = self.distinct
+            dd = dict(orderby=orderby, groupby=groupby, 
+                      distinct=distinct, cache=self.cache)
             records = self.dbset(table).select(*fields, **dd)
         else:
             orderby = self.orderby or \
@@ -471,6 +484,8 @@ class IS_IN_DB(Validator):
         return items
 
     def __call__(self, value):
+        table = self.dbset.db[self.ktable]
+        field = table[self.kfield]
         if self.multiple:
             if isinstance(value,list):
                 values=value
@@ -481,7 +496,7 @@ class IS_IN_DB(Validator):
             if isinstance(self.multiple,(tuple,list)) and \
                     not self.multiple[0]<=len(values)<self.multiple[1]:
                 return (values, translate(self.error_message))
-            if not [x for x in values if not str(x) in self.theset]:
+            if self.dbset(field.belongs(values)).count()==len(values):
                 return (values, None)
         elif self.theset:
             if str(value) in self.theset:
@@ -490,8 +505,6 @@ class IS_IN_DB(Validator):
                 else:
                     return (value, None)
         else:
-            (ktable, kfield) = str(self.field).split('.')
-            field = self.dbset.db[ktable][kfield]
             if self.dbset(field == value).count():
                 if self._and:
                     return self._and(value)
@@ -530,7 +543,7 @@ class IS_NOT_IN_DB(Validator):
         self.record_id = 0
         self.allowed_override = allowed_override
         self.ignore_common_filters = ignore_common_filters
-        
+
     def set_self_id(self, id):
         self.record_id = id
 
@@ -542,7 +555,7 @@ class IS_NOT_IN_DB(Validator):
             return (value, None)
         (tablename, fieldname) = str(self.field).split('.')
         table = self.dbset.db[tablename]
-        field = table[fieldname]        
+        field = table[fieldname]
         rows = self.dbset(field == value, ignore_common_filters = self.ignore_common_filters).select(limitby=(0, 1))
         if len(rows) > 0:
             if isinstance(self.record_id, dict):
@@ -2110,6 +2123,7 @@ class IS_DATE(Validator):
                  error_message='enter date as %(format)s'):
         self.format = translate(format)
         self.error_message = str(error_message)
+        self.extremes = {}
 
     def __call__(self, value):
         if isinstance(value,datetime.date):
@@ -2120,7 +2134,8 @@ class IS_DATE(Validator):
             value = datetime.date(y, m, d)
             return (value, None)
         except:
-            return (value, translate(self.error_message) % IS_DATETIME.nice(self.format))
+            self.extremes.update(IS_DATETIME.nice(self.format))
+            return (value, translate(self.error_message) % self.extremes)
 
     def formatter(self, value):
         format = self.format
@@ -2152,7 +2167,7 @@ class IS_DATETIME(Validator):
               ('%d','28'),
               ('%m','08'),
               ('%b','Aug'),
-              ('%b','August'),
+              ('%B','August'),
               ('%H','14'),
               ('%I','02'),
               ('%p','PM'),
@@ -2166,6 +2181,7 @@ class IS_DATETIME(Validator):
                  error_message='enter date and time as %(format)s'):
         self.format = translate(format)
         self.error_message = str(error_message)
+        self.extremes = {}
 
     def __call__(self, value):
         if isinstance(value,datetime.datetime):
@@ -2176,7 +2192,9 @@ class IS_DATETIME(Validator):
             value = datetime.datetime(y, m, d, hh, mm, ss)
             return (value, None)
         except:
-            return (value, translate(self.error_message) % IS_DATETIME.nice(self.format))
+            self.extremes.update(IS_DATETIME.nice(self.format))
+            return (value, translate(self.error_message) % self.extremes)
+
 
     def formatter(self, value):
         format = self.format
@@ -2186,7 +2204,8 @@ class IS_DATETIME(Validator):
         format = format.replace('%Y',y)
         if year<1900:
             year = 2000
-        d = datetime.datetime(year,value.month,value.day,value.hour,value.minute,value.second)
+        d = datetime.datetime(year,value.month,value.day,
+                              value.hour,value.minute,value.second)
         return d.strftime(format)
 
 class IS_DATE_IN_RANGE(IS_DATE):
@@ -2224,19 +2243,19 @@ class IS_DATE_IN_RANGE(IS_DATE):
                 error_message = "enter date on or after %(min)s"
             else:
                 error_message = "enter date in range %(min)s %(max)s"
-        extremes = dict(min=minimum, max=maximum)
         IS_DATE.__init__(self,
                          format = format,
-                         error_message = translate(error_message) % extremes)
+                         error_message = error_message)
+        self.extremes = dict(min=minimum, max=maximum)
 
     def __call__(self, value):
         (value, msg) = IS_DATE.__call__(self,value)
         if msg is not None:
             return (value, msg)
         if self.minimum and self.minimum > value:
-            return (value, self.error_message)
+            return (value, translate(self.error_message) % self.extremes)
         if self.maximum and value > self.maximum:
-            return (value, self.error_message)
+            return (value, translate(self.error_message) % self.extremes)
         return (value, None)
 
 
@@ -2274,19 +2293,19 @@ class IS_DATETIME_IN_RANGE(IS_DATETIME):
                 error_message = "enter date and time on or after %(min)s"
             else:
                 error_message = "enter date and time in range %(min)s %(max)s"
-        extremes = dict(min = minimum, max = maximum)
         IS_DATETIME.__init__(self,
                          format = format,
-                         error_message = translate(error_message) % extremes)
+                         error_message = error_message)
+        self.extremes = dict(min = minimum, max = maximum)
 
     def __call__(self, value):
         (value, msg) = IS_DATETIME.__call__(self, value)
         if msg is not None:
             return (value, msg)
         if self.minimum and self.minimum > value:
-            return (value, self.error_message)
+            return (value, translate(self.error_message) % self.extremes)
         if self.maximum and value > self.maximum:
-            return (value, self.error_message)
+            return (value, translate(self.error_message) % self.extremes)
         return (value, None)
 
 
@@ -2477,6 +2496,7 @@ class IS_EMPTY_OR(Validator):
         if empty:
             return (self.null, None)
         if isinstance(self.other, (list, tuple)):
+            error = None
             for item in self.other:
                 value, error = item(value)
                 if error: break
@@ -2508,6 +2528,81 @@ class CLEANUP(Validator):
         v = self.regex.sub('',str(value).strip())
         return (v, None)
 
+class LazyCrypt(object):
+    """
+    Stores a lazy password hash
+    """
+    def __init__(self,crypt,password):
+        """
+        crypt is an instance of the CRYPT validator,
+        password is the password as inserted by the user
+        """
+        self.crypt = crypt
+        self.password = password
+        self.crypted = None
+
+    def __str__(self):
+        """
+        Encrypted self.password and caches it in self.crypted.
+        If self.crypt.salt the output is in the format <algorithm>$<salt>$<hash>
+
+        Try get the digest_alg from the key (if it exists)
+        else assume the default digest_alg. If not key at all, set key=''
+
+        If a salt is specified use it, if salt is True, set salt to uuid
+        (this should all be backward compatible)
+
+        Options:
+        key = 'uuid'
+        key = 'md5:uuid'
+        key = 'sha512:uuid'
+        ...
+        key = 'pbkdf2(1000,64,sha512):uuid' 1000 iterations and 64 chars length
+        """
+        if self.crypted:
+            return self.crypted                
+        if self.crypt.key:
+            if ':' in self.crypt.key:
+                digest_alg, key = self.crypt.key.split(':',1)
+            else:
+                digest_alg, key = self.crypt.digest_alg, self.crypt.key
+        else:
+            digest_alg, key = self.crypt.digest_alg, ''
+        if self.crypt.salt:
+            if self.crypt.salt == True:                
+                salt = str(web2py_uuid()).replace('-','')[-16:]
+            else:
+                salt = self.crypt.salt
+        else:
+            salt = ''
+        hashed = simple_hash(self.password, key, salt, digest_alg)
+        self.crypted = '%s$%s$%s' % (digest_alg, salt, hashed)
+        return self.crypted
+
+    def __eq__(self, stored_password):        
+        """
+        compares the current lazy crypted password with a stored password
+        """
+        if self.crypt.key:
+            if ':' in self.crypt.key:
+                key = self.crypt.key.split(':')[1] 
+            else:
+                key = self.crypt.key
+        else:
+            key = ''
+        if stored_password.count('$')==2:
+            (digest_alg, salt, hash) = stored_password.split('$')
+            h = simple_hash(self.password, key, salt, digest_alg)
+            temp_pass = '%s$%s$%s' % (digest_alg, salt, h)            
+        else: # no salting
+            # guess digest_alg
+            digest_alg = DIGEST_ALG_BY_SIZE.get(len(stored_password),None)
+            if not digest_alg:   
+                return False
+            else:
+                temp_pass = simple_hash(self.password, key, '', digest_alg)
+        return temp_pass == stored_password
+    
 
 class CRYPT(object):
     """
@@ -2528,21 +2623,87 @@ class CRYPT(object):
 
     Notice that an empty password is accepted but invalid. It will not allow login back.
     Stores junk as hashed password.
+
+    Specify an algorithm or by default we will use sha512.                                                                      
+
+    Typical available algorithms:                                                                                               
+      md5, sha1, sha224, sha256, sha384, sha512                                                                            
+
+    If salt, it hashes a password with a salt.
+    If salt is True, this method will automatically generate one. 
+    Either case it returns an encrypted password string in the following format:
+
+      <algorithm>$<salt>$<hash> 
+
+    Important: hashed password is returned as a LazyCrypt object and computed only if needed.
+    The LasyCrypt object also knows how to compare itself with an existing salted password
+
+    Supports standard algorithms
+
+    >>> for alg in ('md5','sha1','sha256','sha384','sha512'): 
+    ...     print str(CRYPT(digest_alg=alg,salt=True)('test')[0])
+    md5$...$...
+    sha1$...$...
+    sha256$...$...
+    sha384$...$...
+    sha512$...$...
+
+    The syntax is always alg$salt$hash
+
+    Supports for pbkdf2
+
+    >>> alg = 'pbkdf2(1000,20,sha512)'
+    >>> print str(CRYPT(digest_alg=alg,salt=True)('test')[0])
+    pbkdf2(1000,20,sha512)$...$...
+
+    An optional hmac_key can be specified and it is used as salt prefix
+
+    >>> a = str(CRYPT(digest_alg='md5',key='mykey',salt=True)('test')[0])
+    >>> print a
+    md5$...$...
+
+    Even if the algorithm changes the hash can still be validated
+
+    >>> CRYPT(digest_alg='sha1',key='mykey',salt=True)('test')[0] == a
+    True
+
+    If no salt is specified CRYPT can guess the algorithms from length:
+
+    >>> a = str(CRYPT(digest_alg='sha1',salt=False)('test')[0])
+    >>> a
+    'sha1$$a94a8fe5ccb19ba61c4c0873d391e987982fbbd3'
+    >>> CRYPT(digest_alg='sha1',salt=False)('test')[0] == a
+    True
+    >>> CRYPT(digest_alg='sha1',salt=False)('test')[0] == a[6:]
+    True
+    >>> CRYPT(digest_alg='md5',salt=False)('test')[0] == a
+    True
+    >>> CRYPT(digest_alg='md5',salt=False)('test')[0] == a[6:]
+    True
     """
 
-    def __init__(self, key=None, digest_alg='md5', min_length=0, error_message='too short'):
+    def __init__(self, 
+                 key=None, 
+                 digest_alg='pbkdf2(1000,20,sha512)',
+                 min_length=0, 
+                 error_message='too short', salt=True):
+        """
+        important, digest_alg='md5' is not the default hashing algorithm for
+        web2py. This is only an example of usage of this function.
+
+        The actual hash algorithm is determined from the key which is
+        generated by web2py in tools.py. This defaults to hmac+sha512.       
+        """
         self.key = key
         self.digest_alg = digest_alg
         self.min_length = min_length
         self.error_message = error_message
+        self.salt = salt
 
     def __call__(self, value):
         if len(value)<self.min_length:
             return ('', translate(self.error_message))
-        if self.key:
-            return (hmac_hash(value, self.key, self.digest_alg), None)
-        else:
-            return (simple_hash(value, self.digest_alg), None)
+        return (LazyCrypt(self,value),None)
 
 
 class IS_STRONG(object):
@@ -2572,38 +2733,39 @@ class IS_STRONG(object):
         failures = []
         if type(self.min) == int and self.min > 0:
             if not len(value) >= self.min:
-                failures.append("Minimum length is %s" % self.min)
+                failures.append(translate("Minimum length is %s") % self.min)
         if type(self.max) == int and self.max > 0:
             if not len(value) <= self.max:
-                failures.append("Maximum length is %s" % self.max)
+                failures.append(translate("Maximum length is %s") % self.max)
         if type(self.special) == int:
             all_special = [ch in value for ch in self.specials]
             if self.special > 0:
                 if not all_special.count(True) >= self.special:
-                    failures.append("Must include at least %s of the following : %s" % (self.special, self.specials))
+                    failures.append(translate("Must include at least %s of the following : %s") \
+                                        % (self.special, self.specials))
         if self.invalid:
             all_invalid = [ch in value for ch in self.invalid]
             if all_invalid.count(True) > 0:
-                failures.append("May not contain any of the following: %s" \
+                failures.append(translate("May not contain any of the following: %s") \
                     % self.invalid)
         if type(self.upper) == int:
             all_upper = re.findall("[A-Z]", value)
             if self.upper > 0:
                 if not len(all_upper) >= self.upper:
-                    failures.append("Must include at least %s upper case" \
+                    failures.append(translate("Must include at least %s upper case") \
                         % str(self.upper))
             else:
                 if len(all_upper) > 0:
-                    failures.append("May not include any upper case letters")
+                    failures.append(translate("May not include any upper case letters"))
         if type(self.lower) == int:
             all_lower = re.findall("[a-z]", value)
             if self.lower > 0:
                 if not len(all_lower) >= self.lower:
-                    failures.append("Must include at least %s lower case" \
+                    failures.append(translate("Must include at least %s lower case") \
                         % str(self.lower))
             else:
                 if len(all_lower) > 0:
-                    failures.append("May not include any lower case letters")
+                    failures.append(translate("May not include any lower case letters"))
         if type(self.number) == int:
             all_number = re.findall("[0-9]", value)
             if self.number > 0:
@@ -2611,11 +2773,11 @@ class IS_STRONG(object):
                 if self.number > 1:
                     numbers = "numbers"
                 if not len(all_number) >= self.number:
-                    failures.append("Must include at least %s %s" \
+                    failures.append(translate("Must include at least %s %s") \
                         % (str(self.number), numbers))
             else:
                 if len(all_number) > 0:
-                    failures.append("May not include any numbers")
+                    failures.append(translate("May not include any numbers"))
         if len(failures) == 0:
             return (value, None)
         if not self.error_message:
@@ -2982,7 +3144,9 @@ class IS_IPV4(Validator):
 
 if __name__ == '__main__':
     import doctest
-    doctest.testmod()
+    doctest.testmod(optionflags=doctest.NORMALIZE_WHITESPACE|doctest.ELLIPSIS)
+
+
 
 
 

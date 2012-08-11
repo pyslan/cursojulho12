@@ -15,7 +15,7 @@ Provides:
 import cPickle
 import portalocker
 
-__all__ = ['List', 'Storage', 'Settings', 'Messages',
+__all__ = ['List', 'Storage', 'Settings', 'Messages', 'PickleableStorage',
            'StorageList', 'load_storage', 'save_storage']
 
 
@@ -25,11 +25,22 @@ class List(list):
     instead of IndexOutOfBounds
     """
 
-    def __call__(self, i, default=None):
-        if 0<=i<len(self):
-            return self[i]
+    def __call__(self, i, default=None, cast=None, url_onerror=None):        
+        n = len(self)
+        if 0<=i<n or -n<=i<0:
+            value = self[i]
         else:
-            return default
+            value = default
+        if cast:
+            try:
+                value = cast(value)
+            except (ValueError, TypeError):
+                from http import HTTP, redirect
+                if url_onerror:
+                    redirect(url_onerror)
+                else:
+                    raise HTTP(404)
+        return value
 
 class Storage(dict):
 
@@ -156,6 +167,12 @@ class Storage(dict):
             return value[-1]
         return None
 
+    def __getinitargs__(self):
+        return ()
+
+    def __getnewargs__(self):
+        return ()
+
 PICKABLE = (str,int,long,float,bool,list,dict,tuple,set)
 def PickleableStorage(data):
     return Storage(dict((k,v) for (k,v) in data.items() if isinstance(v,PICKABLE)))
@@ -222,6 +239,7 @@ class Messages(Storage):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+
 
 
 

@@ -139,7 +139,7 @@ def step2():
                     if not name in session.app['pages']:
                         session.app['pages'].append(name)
                         session.app['page_'+name] = \
-                            '## Manage %s\n{{=form}}' % (table)
+                            '## Manage %s\n\n{{=form}}' % (table)
             if session.app['tables']:
                 redirect(URL('step3',args=0))
             else:
@@ -166,7 +166,7 @@ def step3():
         try:
             tables=sort_tables(session.app['tables'])
         except RuntimeError:
-            response.flash=T('invalid circual reference')
+            response.flash=T('invalid circular reference')
         else:
             if n<m-1:
                 redirect(URL('step3',args=n+1))
@@ -248,8 +248,11 @@ def sort_tables(tables):
     def append(table,trail=[]):
         if table in trail:
             raise RuntimeError
-        for t in d[table]: append(t,trail=trail+[table])
-        if not table in tables: tables.append(table)
+        for t in d[table]:
+            # if not t==table: (problem, no dropdown for self references)
+            append(t,trail=trail+[table])
+        if not table in tables:
+            tables.append(table)
     for table in d: append(table)
     return tables
 
@@ -437,7 +440,10 @@ def create(options):
         redirect(URL('step6'))
     params = dict(session.app['params'])
     app = session.app['name']
-    if not app_create(app,request,force=True,key=params['security_key']):
+    if app_create(app,request,force=True,key=params['security_key']):
+        if MULTI_USER_MODE:
+            db.app.insert(name=app,owner=auth.user.id)
+    else:
         session.flash = 'Failure to create application'
         redirect(URL('step6'))
 

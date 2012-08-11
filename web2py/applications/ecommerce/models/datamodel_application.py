@@ -4,8 +4,8 @@
 
 from gluon.tools import Auth, Mail
 
-auth = Auth(db, hmac_key=Auth.get_or_create_key())
-
+auth = Auth(db, hmac_key=Auth.get_or_create_key(), controller="home", function="user")
+auth.settings.login_next = URL('home', 'index')
 
 # CAPTCHA
 
