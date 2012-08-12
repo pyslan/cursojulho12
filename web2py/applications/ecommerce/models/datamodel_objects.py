@@ -12,6 +12,7 @@ db.define_table("category",
     Field("name", length=128, notnull=True, unique=True),
     Field("description", "text"),
     Field("picture", "upload"),
+    # format="%(name)s"
     # migrate=False,
     # primary_key=["cod_cat", "name"]
     )
@@ -19,6 +20,7 @@ db.define_table("category",
 # Product
 # id, name, category, description, qtd, origin, unit_price, 
 # total_price, tax_price, picture, thumbnail, barcode (signature)
+
 
 db.define_table("product",
     Field("name", notnull=True),
