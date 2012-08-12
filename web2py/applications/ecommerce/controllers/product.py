@@ -73,10 +73,27 @@ def edit():
     # return form
 
 
+@auth.requires_login()
+@auth.requires_membership("admin")
 def new():
+    # if request.vars:
+    #     name = request.vars.name
+    #     description = request.vars.description
+    #     db.product.description.requires = IS_NOT_EMPTY()
+    #     print db.product.validate_and_insert(name=name, description=description, qtd=1)
+    #     db.commit()   
     # form para add novo produto
     # apenas para admin
-    pass
+
+    hide_fields("product", ["total_price"])
+    message = None
+    form = SQLFORM(db.product, formstyle="divs")
+    if form.process().accepted:
+        message = T("Product registered")
+    elif form.errors:
+        message = T("Error in form")
+
+    return dict(form=form, message=message)
 
 
 

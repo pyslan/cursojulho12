@@ -1,0 +1,29 @@
+{{extend 'layout.html'}}
+
+{{block main}}
+
+   {{if message:}}
+     <div class="alert">
+        {{=message}}
+    </div>
+   {{pass}}
+
+  <h1> {{=T("New product")}} </h1>
+   <div class="container">
+
+   <div class="span8 well">
+      {{=form}}
+   </div>
+  </div>
+
+  <!-- form method="POST" action="">
+    <label for="name">Name</label>
+    <input type="text" name="name" id="name" />
+    <br />
+    <label for="description">Description</label>
+     <textarea name="description" id="description"></textarea>
+
+     <button>Submit</button>
+  </form -->
+
+{{end}}

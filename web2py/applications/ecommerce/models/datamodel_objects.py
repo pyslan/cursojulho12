@@ -12,9 +12,10 @@ db.define_table("category",
     Field("name", length=128, notnull=True, unique=True),
     Field("description", "text"),
     Field("picture", "upload"),
-    # format="%(name)s"
+    auth.signature,
+    format="%(name)s"
     # migrate=False,
-    # primary_key=["cod_cat", "name"]
+    # primary_key=["cod_cat", "name"],
     )
 
 # Product
@@ -24,7 +25,7 @@ db.define_table("category",
 
 db.define_table("product",
     Field("name", notnull=True),
-    Field("category", "reference category"),
+    Field("category", "reference category", required=True),
     Field("description", "text"),
     Field("qtd", "integer", notnull=True),
     Field("origin", "string"),
@@ -35,6 +36,7 @@ db.define_table("product",
     Field("thumbnail", "upload"),
     Field("barcode", "string"),
     Field("featured", "boolean", default=False),
+    auth.signature
     )
 
 origins = {"BR": 1.0, "JP": 1.2, "EUA": 1.8, "UK": 1.5 }
@@ -44,3 +46,12 @@ origins = {"BR": 1.0, "JP": 1.2, "EUA": 1.8, "UK": 1.5 }
 
 # OrderItems
 # id, order_id, product_id, unit_price, qtd, total_price (signature)
+
+
+meus_menus = [
+    {"title": "Home", "url": URL('home', 'index')},
+    {"title": "Products", "url": URL('products', 'list')},
+    {"title": "Cart", "url": URL('cart', 'show')},
+    {"title": "Admin", "url": URL(a="admin")},
+    {"title": "Contact", "url": URL('home', 'contact')},
+]

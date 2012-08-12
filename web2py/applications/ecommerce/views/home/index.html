@@ -12,40 +12,27 @@
 {{end}}
 
 {{block featured}}
-<div class="hero-unit">
-	<h3> FEATURED </h3>
-	<ul class="thumbnails">
-	  {{for product in featured:}}	
-	  <li class="span3">
-	    <div class="thumbnail">
-	      <img src="http://placehold.it/260x180" alt="">
-	      <h4>{{=product.name}}</h4>
-	      <p><span>{{=product.unit_price}}</span></p>
-	    </div>
-	  </li>
-	  {{pass}}
-	</ul>
-</div>	
+    <div class="hero-unit">
+    	<h3> FEATURED </h3>
+    	{{get_thumbnails(featured, size=(260, 180), box="span3")}}
+    </div>	
 {{end}}
 
 
 
 {{block main}}
-<h1> GALLERY </h1>
+    <h1> GALLERY </h1>
+    {{get_thumbnails(products, size=(260, 180), box="span3")}}
 
-{{get_thumbnails(products)}}
 
-{{=UL(*[LI(
-	        DIV(
-	            IMG(_src="http://placehold.it/260x180"),
-                H4(product.name),
-                P(SPAN(product.unit_price)),
-                _class="thumbnail"
-            ),
-            _class="span3"
-        ) for product in products],
-      _class="thumbnails"
-      )
-}}
+{{end}}
+
+{{block footer}}
+
+   
+
+    {{=UL(*[LI(A(menu["title"], _href=menu["url"])) for menu in meus_menus])}}
+
+   {{include "../static/footer.html"}}
 
 {{end}}

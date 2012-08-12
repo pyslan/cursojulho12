@@ -1,0 +1,29 @@
+{{extend 'layout.html'}}
+
+{{block head}}
+<style type="">
+
+.register input {
+    width: 250px;
+}
+
+</style>
+
+{{end}}
+
+{{block main}}
+
+<div class="container">
+
+   <div class="span5 well">
+    <h3>{{=T("Existing user?")}}</h3>
+      {{=login}}
+   </div>
+      <div class="span5 well register">
+         <h3>{{=T("New user?")}}</h3>
+      {{=register}}
+   </div>
+
+</div>    
+
+{{end}}

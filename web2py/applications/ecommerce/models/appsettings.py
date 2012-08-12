@@ -30,4 +30,5 @@ config.mail.login = "usuario:senha"
 response.title = "Ecommerce do Bruno | CursodePython.com.br"
 response.description = "Ecommerce"
 
+# glob
 response.generic_patterns = ['*']

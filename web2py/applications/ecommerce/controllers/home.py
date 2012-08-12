@@ -1,5 +1,16 @@
 # coding: utf-8
 
+def contact():
+    form =  FORM(
+                 INPUT(_type="text", _name="name", _placeholder=T("Your name")),
+                 BR(),
+                 TEXTAREA("Sua mensagem",_name="message"),
+                 BR(), 
+                 BUTTON("Enviar")
+                )
+    return dict(form=form)
+
+
 def index():
     products = db(db.product).select(limitby=(0, 100))
     featured = products.exclude(lambda registro: registro.featured == True)
@@ -36,7 +47,21 @@ def user():
         @auth.requires_permission('read','table name',record_id)
     to decorate functions that need access control
     """
+    if request.args(0) == "not_authorized":
+        return dict(form=DIV("YOU DONT HAVE ACCESS!! BASTARD!"))
+    if request.args(0) in ['login', 'register']:
+        redirect(URL('home', 'account', vars=request.vars))
+
+    if request.args(0) == "register":
+        hidden_fields = ['zipcode', 'picture', 'address', 'house_number']
+        hide_fields("auth_user", hidden_fields)
     return dict(form=auth())
+
+def account():
+    hidden_fields = ['zipcode', 'picture', 'address', 'house_number']
+    hide_fields("auth_user", hidden_fields) 
+    return dict(register=auth.register(),
+                login=auth.login())
 
 def download():
     """

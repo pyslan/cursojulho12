@@ -1,0 +1,25 @@
+{{extend 'layout.html'}}
+
+{{block head}}
+<style type="">
+
+.register input {
+    width: 250px;
+}
+
+</style>
+
+{{end}}
+
+{{block main}}
+
+<div class="container">
+
+   <div class="span12 {{='alert alert-danger' if request.args(0) == 'not_authorized' else 'well'}}">
+    <h3>{{=T("%s", request.function)}}</h3>
+      {{=form}}
+   </div>
+
+</div>    
+
+{{end}}

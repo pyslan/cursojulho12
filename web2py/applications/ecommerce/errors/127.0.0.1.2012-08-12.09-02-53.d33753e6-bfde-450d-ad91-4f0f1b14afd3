@@ -1,0 +1,219 @@
+(dp1
+S'output'
+p2
+S'Unable to open included view file: c:\\Users\\rochacbruno\\jul12\\cursojulho12\\web2py\\applications\\ecommerce\\views\\functions.html'
+p3
+sS'layer'
+p4
+S'ParserContainer'
+p5
+sS'code'
+p6
+S'{{extend \'layout.html\'}}\r\n\r\n{{block head}}\r\n\t<style type="text/css">\r\n\t.cat {\r\n\t    background: blue;\r\n\t    color:white;\r\n\t}\r\n\t</style>\r\n\r\n    {{include "functions.html"}}\t\r\n{{end}}\r\n\r\n{{block featured}}\r\n<div class="hero-unit">\r\n\t<h3> FEATURED </h3>\r\n\t<ul class="thumbnails">\r\n\t  {{for product in featured:}}\t\r\n\t  <li class="span3">\r\n\t    <div class="thumbnail">\r\n\t      <img src="http://placehold.it/260x180" alt="">\r\n\t      <h4>{{=product.name}}</h4>\r\n\t      <p><span>{{=product.unit_price}}</span></p>\r\n\t    </div>\r\n\t  </li>\r\n\t  {{pass}}\r\n\t</ul>\r\n</div>\t\r\n{{end}}\r\n\r\n\r\n\r\n{{block main}}\r\n<h1> GALLERY </h1>\r\n\r\n{{get_thumbnails(products)}}\r\n\r\n{{=UL(*[LI(\r\n\t        DIV(\r\n\t            IMG(_src="http://placehold.it/260x180"),\r\n                H4(product.name),\r\n                P(SPAN(product.unit_price)),\r\n                _class="thumbnail"\r\n            ),\r\n            _class="span3"\r\n        ) for product in products],\r\n      _class="thumbnails"\r\n      )\r\n}}\r\n\r\n{{end}}'
+p7
+sS'snapshot'
+p8
+(dp9
+S'exception'
+p10
+(dp11
+S'__getslice__'
+p12
+S"<method-wrapper '__getslice__' of exceptions.IOError object>"
+p13
+sS'__str__'
+p14
+S"<method-wrapper '__str__' of exceptions.IOError object>"
+p15
+sS'__reduce__'
+p16
+S'<built-in method __reduce__ of exceptions.IOError object>'
+p17
+sS'__dict__'
+p18
+S'{}'
+p19
+sS'__sizeof__'
+p20
+S'<built-in method __sizeof__ of exceptions.IOError object>'
+p21
+sS'__init__'
+p22
+S"<method-wrapper '__init__' of exceptions.IOError object>"
+p23
+sS'__setattr__'
+p24
+S"<method-wrapper '__setattr__' of exceptions.IOError object>"
+p25
+sS'__reduce_ex__'
+p26
+S'<built-in method __reduce_ex__ of exceptions.IOError object>'
+p27
+sS'__new__'
+p28
+S'<built-in method __new__ of type object>'
+p29
+sS'errno'
+p30
+S'2'
+sS'__format__'
+p31
+S'<built-in method __format__ of exceptions.IOError object>'
+p32
+sS'__class__'
+p33
+S"<type 'exceptions.IOError'>"
+p34
+sS'filename'
+p35
+S"r'c:\\Users\\rochacbruno\\jul12\\cursojulho12\\web2py\\applications\\ecommerce\\views\\functions.html'"
+p36
+sS'__doc__'
+p37
+S"'I/O operation failed.'"
+p38
+sS'__getitem__'
+p39
+S"<method-wrapper '__getitem__' of exceptions.IOError object>"
+p40
+sS'__setstate__'
+p41
+S'<built-in method __setstate__ of exceptions.IOError object>'
+p42
+sS'__getattribute__'
+p43
+S"<method-wrapper '__getattribute__' of exceptions.IOError object>"
+p44
+sS'args'
+p45
+S"(2, 'No such file or directory')"
+p46
+sS'__subclasshook__'
+p47
+S'<built-in method __subclasshook__ of type object>'
+p48
+sS'__unicode__'
+p49
+S'<built-in method __unicode__ of exceptions.IOError object>'
+p50
+sS'strerror'
+p51
+S"'No such file or directory'"
+p52
+sS'__delattr__'
+p53
+S"<method-wrapper '__delattr__' of exceptions.IOError object>"
+p54
+sS'__repr__'
+p55
+S"<method-wrapper '__repr__' of exceptions.IOError object>"
+p56
+sS'__hash__'
+p57
+S"<method-wrapper '__hash__' of exceptions.IOError object>"
+p58
+ssS'evalue'
+p59
+S"[Errno 2] No such file or directory: 'c:\\\\Users\\\\rochacbruno\\\\jul12\\\\cursojulho12\\\\web2py\\\\applications\\\\ecommerce\\\\views\\\\functions.html'"
+p60
+sS'frames'
+p61
+(lp62
+(dp63
+S'file'
+p64
+S'c:\\Users\\rochacbruno\\jul12\\cursojulho12\\web2py\\gluon\\template.py'
+p65
+sS'dump'
+p66
+(dp67
+S'builtinopen'
+p68
+S'<built-in function open>'
+p69
+sS'fileobj'
+p70
+S'undefined'
+p71
+sS'filepath'
+p72
+S"r'c:\\Users\\rochacbruno\\jul12\\cursojulho12\\web2py\\applications\\ecommerce\\views\\functions.html'"
+p73
+ssS'lnum'
+p74
+I451
+sS'lines'
+p75
+(dp76
+I448
+S''
+sI449
+S'        # try to read the text.'
+p77
+sI450
+S'        try:'
+p78
+sI451
+S"            fileobj = open(filepath, 'rb')"
+p79
+sI452
+S'            text = fileobj.read()'
+p80
+sI453
+S'            fileobj.close()'
+p81
+sI454
+S'        except IOError:'
+p82
+sI455
+S"            self._raise_error('Unable to open included view file: ' + filepath)"
+p83
+sI446
+S'        # Get the path of the file on the system.'
+p84
+sI447
+S'        filepath = self.path and os.path.join(self.path, filename) or filename'
+p85
+ssS'call'
+p86
+S"(self=<gluon.template.TemplateParser object>, filename='functions.html')"
+p87
+sS'func'
+p88
+S'_get_file_text'
+p89
+sasS'pyver'
+p90
+S'Python 2.7.2: c:\\Python27\\python.exe'
+p91
+sS'etype'
+p92
+S"<type 'exceptions.IOError'>"
+p93
+sS'date'
+p94
+S'Sun Aug 12 09:02:56 2012'
+p95
+sS'locals'
+p96
+(dp97
+S'self'
+p98
+S'<gluon.template.TemplateParser object>'
+p99
+sS'filepath'
+p100
+S"r'c:\\Users\\rochacbruno\\jul12\\cursojulho12\\web2py\\applications\\ecommerce\\views\\functions.html'"
+p101
+sS'context'
+p102
+S"{'A': <class 'gluon.html.A'>, 'Auth': <class 'gluon.tools.Auth'>, 'B': <class 'gluon.html.B'>, 'BEAUTIFY': <class 'gluon.html.BEAUTIFY'>, 'BODY': <class 'gluon.html.BODY'>, 'BR': <class 'gluon.html.BR'>, 'BUTTON': <class 'gluon.html.BUTTON'>, 'CAT': <class 'gluon.html.CAT'>, 'CENTER': <class 'gluon.html.CENTER'>, 'CLEANUP': <class 'gluon.validators.CLEANUP'>, ...}"
+p103
+sg35
+S"'functions.html'"
+p104
+sssS'traceback'
+p105
+S'Traceback (most recent call last):\n  File "c:\\Users\\rochacbruno\\jul12\\cursojulho12\\web2py\\gluon\\template.py", line 451, in _get_file_text\n    fileobj = open(filepath, \'rb\')\nIOError: [Errno 2] No such file or directory: \'c:\\\\Users\\\\rochacbruno\\\\jul12\\\\cursojulho12\\\\web2py\\\\applications\\\\ecommerce\\\\views\\\\functions.html\'\n'
+p106
+s.

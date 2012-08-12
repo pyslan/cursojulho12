@@ -1,5 +1,24 @@
 # -*- coding: utf-8 -*-
 
+
+# http://rochacbruno.com.br/custom-validator-for-web2py-forms/
+
+
+class IS_VALID_BARCODE(object):
+    def __init__(self, start_with="", error_message="INVALID BARCODE"):
+        self.error_message = error_message
+        self.start_with = start_with
+
+    def __call__(self, value):
+        error = None
+        if not value.startswith(self.start_with):
+            return (value, self.error_message)
+        else:
+            return (value, None)
+
+
+
+
 # TEMPLATES
 class VALIDATOR(object):
     def __init__(self, error_message="SOMETHING WRONG"):

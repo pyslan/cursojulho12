@@ -5,6 +5,9 @@
 from gluon.tools import Auth, Mail
 
 auth = Auth(db, hmac_key=Auth.get_or_create_key(), controller="home", function="user")
+
+#session.connect(request, response, db)
+
 auth.settings.login_next = URL('home', 'index')
 
 # CAPTCHA
@@ -15,7 +18,12 @@ auth.settings.login_next = URL('home', 'index')
 
 # auth_user, auth_groups, auth_membership, auth_permission
 
-#auth.settings.extra_fields["auth_user"] = [CPF]
+auth.settings.extra_fields["auth_user"] = [
+    Field("picture", "upload"),
+    Field("zipcode"),
+    Field("address"),
+    Field("house_number")
+]
 
 # auth.settings.registration_requires_verification = False
 # auth.settings.registration_requires_approval = False
