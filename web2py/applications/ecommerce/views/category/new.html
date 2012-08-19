@@ -1,0 +1,32 @@
+{{extend "layout.html"}}
+
+{{block main}}
+{{=H1(T("New category"))}}
+
+ {{=form.custom.begin}}
+
+<div class="alert alert-info">
+   {{=form.custom.label.name}}
+   <br>
+   {{=form.custom.widget.name}}
+</div>
+
+
+<div class="alert alert-danger">
+   {{=form.custom.label.description}}
+   <br>
+   {{=form.custom.widget.description}}
+</div>
+
+
+<div class="alert alert">
+   {{=form.custom.label.picture}}
+   <br>
+   {{=form.custom.widget.picture}}
+</div>
+
+<button> ENVIAR </button>
+
+{{=form.custom.end}}
+
+{{end}}

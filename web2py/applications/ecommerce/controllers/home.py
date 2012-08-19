@@ -1,13 +1,40 @@
 # coding: utf-8
 
+from gluon.template import render
+import os
+
+def render_email_confirma(form, template_file):
+    caminho = os.path.join(request.folder, "views", template_file)
+    with open(caminho, "r") as template:
+        message = render(content=template.read(), context=form.vars)
+    return message
+
+
 def contact():
     form =  FORM(
-                 INPUT(_type="text", _name="name", _placeholder=T("Your name")),
+                 INPUT(_type="text", requires=IS_NOT_EMPTY(), _name="name", _placeholder=T("Your name")),
                  BR(),
-                 TEXTAREA("Sua mensagem",_name="message"),
+                 INPUT(_type="email", requires=IS_EMAIL(), _name="email", _placeholder=T("Your email")),
+                 BR(),
+                 TEXTAREA("Sua mensagem",_name="message", requires=IS_NOT_EMPTY()),
                  BR(), 
                  BUTTON("Enviar")
                 )
+
+    if form.process().accepted:
+        #adm
+        mail.send(
+              to="alunos+admin@gmail.com",
+              subject="Novo contato - site",
+              message=[None, render_email_confirma(form, "email_contato.html")]
+            )
+        # confirma usuario
+        mail.send(
+              to=form.vars.email,
+              subject="Recebemos sua mensagem",
+              message=[None, render_email_confirma(form, "email_confirma.html")]
+            )
+
     return dict(form=form)
 
 

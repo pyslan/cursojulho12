@@ -57,12 +57,22 @@ def list():
 
     return dict(table=table)
 
+def log_edit_form(form):
+    if "apple" in form.vars.description:
+        form.errors.name = "Voce nao pode editar este produto"
+    print "formulario editado", form.vars
+
 
 def edit():
+    response.view = 'product/new.html'
     # pegar produto pelo id ou slug
     # criar formulario de edicao
     # apenas para admin
-    pass
+    pid = request.args(0) or redirect(URL('home', 'index'))
+    form = SQLFORM(db.product, pid, formstyle="divs", submit_button="ENVIAR")
+    message = ""
+    form.process(onvalidation=log_edit_form)
+    return dict(form=form, message=message)
     
     # pid = request.args(0)
     # form = SQLFORM(db.product, pid, formstyle="divs")

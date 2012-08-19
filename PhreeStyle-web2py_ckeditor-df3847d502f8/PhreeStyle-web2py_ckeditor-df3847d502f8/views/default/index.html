@@ -1,0 +1,10 @@
+{{extend 'layout.html'}}
+
+<div class="editable">
+    <h1>Hello World!</h1>
+    <p>This is my text. This whole content area is editable. Simply double-click somewhere in here
+        and magically, this whole area will turn into a WYSIWYG editor. Pretty cool, hu?
+        Go on, give it a shot!</p>
+</div>
+
+{{=ckeditor.edit_in_place('.editable', URL())}}

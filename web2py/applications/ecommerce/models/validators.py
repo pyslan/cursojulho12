@@ -2,6 +2,11 @@
 
 from customvalidators import IS_VALID_BARCODE
 from thumb import THUMB
+from plugin_ckeditor import CKEditor
+
+ckeditor = CKEditor(db)
+
+db.product.description.widget = ckeditor.widget
 
 # validadores para tabelas
 
@@ -18,7 +23,7 @@ db.product.barcode.requires = \
 #             (3, "tres")])
 
 db.product.origin.requires = IS_IN_SET(origins.keys())
-
+db.product.origin.widget = SQLFORM.widgets.radio.widget
 # computations
 
 db.product.total_price.compute = \
