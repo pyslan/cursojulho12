@@ -96,3 +96,19 @@ def download():
     http://..../[app]/default/download/[filename]
     """
     return response.download(request,db)
+
+
+import time
+
+def testcache():
+    t = cache.ram('time', lambda: time.ctime(), time_expire=60)
+    return dict(t=t, link=A('refresh', _href=request.url))
+
+@cache('time2', time_expire=15, cache_model=cache.ram)
+def testcache2():
+    return time.ctime()
+
+def testcache3():
+    rows = db(db.product).select(cache=(cache.ram, 60))
+    return rows
+
