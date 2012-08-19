@@ -2,7 +2,9 @@
 
 # definir objetos da app (Auth, Mail, Service)
 
-from gluon.tools import Auth, Mail
+from gluon.tools import Auth, Mail, Service
+
+service = Service()
 
 auth = Auth(db, hmac_key=Auth.get_or_create_key(), controller="home", function="user")
 

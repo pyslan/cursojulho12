@@ -1,0 +1,11 @@
+<ul style="list-style:none;">
+
+    {{for tweet in tweets['results']:}}
+    <li style="border-bottom: 2px dashed red;">
+       {{=tweet['from_user']}}<br>
+       {{=IMG(_src=tweet['profile_image_url'])}}
+       {{=tweet['text']}}
+    </li>    
+    {{pass}}
+
+</ul>   

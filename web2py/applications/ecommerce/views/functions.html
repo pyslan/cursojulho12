@@ -10,6 +10,7 @@
 		  {{pass}}
 		  <h4>{{=product.name}}</h4>
 		  <p><span>{{=product.unit_price}}</span></p>
+		  <a class="btn btn-primary" href="{{=URL('product', 'show', args=[slugfy(product)])}}">{{=T("View details")}}</a>
 		</div>
 		</li>
 	{{pass}}

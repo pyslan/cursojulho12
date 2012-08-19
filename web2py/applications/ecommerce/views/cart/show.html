@@ -1,0 +1,43 @@
+{{extend "layout.html"}}
+
+{{block head}}
+
+<script>
+jQuery(function(){
+    var doc = $(document)
+    doc.on("click", ".removebutton", function(e){
+       // web2py.js
+       url = $(this).attr("href");
+       if (confirm("Are you sure you want to delete?")){
+         ajax(url, null, ":eval");
+       }
+       return false;
+    });
+});
+</script>
+
+{{end}}
+
+{{block main}}
+<div class="container">
+<div class="row span10">
+ {{=T("Your cart")}}
+</div>
+
+<div class="row span10">
+ {{=cart}}
+
+ <div class="pull-right"> <span class="label">Total:</span> {{=format_price(total)}} </div> 
+</div>
+
+<div class="row span10">
+ 
+ {{=A("Buy more", _class="btn", _href=URL('home', 'index'))}}
+
+ {{=A("Chekout", _class="pull-right btn btn-primary", _href=URL('cart', 'checkout'))}}
+
+</div>
+
+
+</div>
+{{end}}

@@ -3,7 +3,8 @@
 def list():
     # grid de categorias
     # apenas admin
-    pass
+    grid = SQLFORM.grid(db.category.id>0)
+    return dict(grid=grid)
 
 def new():
     form = SQLFORM(db.category, formstyle="divs")

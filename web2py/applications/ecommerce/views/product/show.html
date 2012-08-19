@@ -1,0 +1,55 @@
+{{extend "layout.html"}}
+
+{{block main}}
+<div class="container">
+
+    <div class="row span12">
+       <h3> {{=product.name}}</h3>
+    </div>
+   <div class="row span12">
+   
+        <div class="span5">
+    {{if product.picture:}}
+         {{=IMG(_src=URL('home', 'download', args=product.picture))}}
+    {{else:}}
+
+       {{=IMG(_src="http://placehold.it/500x500")}}
+
+    {{pass}}
+        </div> 
+        <div class="span5">
+
+            <div class="span4">
+                <span class="label">{{=T("Price")}}</span>
+                <strong>{{=format_price(product.unit_price)}}</strong>
+                <hr>
+                {{=form}}
+
+                {{=T("this is a test")}}
+            </div>
+            
+        </div> 
+
+   <div class="row span12">
+   
+        <div class="span5">
+            <h4>{{=T("Product details")}}</h4>
+            <div>
+             {{=XML(product.description)}}
+            </div>    
+        </div> 
+        <div class="span5">
+        
+         <h4> {{=T("Twitter feed")}} </h4>
+          <div>
+             {{=LOAD('plugin_twitter', 'index', vars=dict(key=product.name), ajax=True)}}
+          </div>
+
+        </div> 
+
+
+   </div>
+
+
+</div>   
+{{end}}
