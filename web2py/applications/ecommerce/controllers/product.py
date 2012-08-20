@@ -46,16 +46,44 @@ def show():
 
     btn = form.elements('input[type=submit]')
     btn[0]["_class"] = "btn btn-primary"
-    
+
     form.elements("input#no_table_pid")[0]["_type"] = "hidden"
 
     return dict(product=product, form=form)
 
 
+def get_miniatura_grid(row):
+    if row.thumbnail:
+        return IMG(_width=50, _height=50,_src=URL('home', 'download', args=[row.thumbnail]))
+    else:
+        return IMG(_src="http://placehold.it/50x50")
 
 def search():
     # receber parametros e efetuar busca
-    pass
+    q = request.vars.q
+    if q:
+        term = "%%%s%%" % q
+        query = db.product.name.like(term)
+        query |= db.product.description.like(term)
+    else:
+        query = db.product
+
+    db.product.thumbnail.represent = lambda value, row: get_miniatura_grid(row)
+
+    links = [dict(header=T("View"),
+                  body=lambda row: A(T("View details"), _class="btn btn-info", _href=URL('product', 'show', args=row.id)))]
+
+    results = SQLFORM.grid(query,
+        create=False,
+        details=False,
+        csv=False,
+        editable=False,
+        deletable=False,
+        user_signature=False,
+        links=links,
+        fields=[db.product.thumbnail, db.product.name, db.product.category]
+    )
+    return dict(results=results)
 
 
 def get_miniatura(row):
@@ -64,13 +92,8 @@ def get_miniatura(row):
     else:
         return IMG(_src="http://placehold.it/50x50")
 
-def get_miniatura_grid(row):
-    if row.thumbnail:
-        return IMG(_width=50, _height=50,_src=URL('home', 'download', args=[row.thumbnail]))
-    else:
-        return IMG(_src="http://placehold.it/50x50")
 
-# @auth.requires_login()
+@auth.requires_membership("admin")
 def list():
     # exibir todos os produtos
     # apenas para admin
@@ -79,11 +102,11 @@ def list():
     db.product.tax_price = Field.Virtual(lambda row: row.product.unit_price * origins.get(row.product.origin, 1))
     db.product.edit = Field.Virtual(lambda row: A("Edit", _href=URL('edit', args=row.product.id)))
     db.product.img = Field.Virtual(lambda row: get_miniatura(row))
-    
+
     query = db.product.id > 2
 
     rows = db(query).select() # paginacao com limitby=(0, 10)
-    
+
     headers = ["Foto","Name", "Unit Price", "Tax", "Edit"]
     fields = ['img', 'name', 'unit_price', 'tax_price', "edit"]
 
@@ -100,7 +123,7 @@ def list():
     #     for field in fields:
     #         tr.append(row[field])
     #     table.append(tr)
-    
+
     # table["_class"] = "table table-striped table-bordered table-condensed"
 
     # table.append(TR(TD(*[A(p, _href=URL(), _class="btn") for p in xrange(pages)], _colspan=4)))
@@ -115,7 +138,7 @@ def list():
     tax_price = lambda row: row.unit_price * origins.get(row.origin, 1)
     img = lambda row: get_miniatura_grid(row)
 
-    links = [dict(header='Tax', body=tax_price), 
+    links = [dict(header='Tax', body=tax_price),
              dict(header='Img', body=img)]
 
     table = SQLFORM.grid(query, user_signature=False, links=links, paginate=5)
@@ -139,7 +162,7 @@ def edit():
     message = ""
     form.process(onvalidation=log_edit_form)
     return dict(form=form, message=message)
-    
+
     # pid = request.args(0)
     # form = SQLFORM(db.product, pid, formstyle="divs")
     # button = form.elements('input[type=submit]')[0]
@@ -157,7 +180,7 @@ def new():
     #     description = request.vars.description
     #     db.product.description.requires = IS_NOT_EMPTY()
     #     print db.product.validate_and_insert(name=name, description=description, qtd=1)
-    #     db.commit()   
+    #     db.commit()
     # form para add novo produto
     # apenas para admin
 

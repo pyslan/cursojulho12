@@ -3,6 +3,38 @@
 from gluon.template import render
 import os
 
+
+@auth.requires_membership("admin")
+def userlist():
+    return dict(userlist="Implemente um SQLFORM.grid ou uma tabela para gerenciar os usuários, apenas o admin tem acesso")
+
+
+@auth.requires_membership("admin")
+def admin():
+    items = {
+       "product": {
+          "list": URL('product', 'list'),
+          "new": URL('product', 'new')
+       },
+       "category": {
+           "list": URL('category', 'list')
+       },
+       "users": {
+           "list": URL('home', 'userlist')
+       },
+       "orders": {
+           "list": URL("order", "list")
+       }
+    }
+    menu = UL()
+    for item, subitems in items.items():
+        li = LI(item.title(), ":", BR())
+        for  name, url in subitems.items():
+            li.append(A(name.title(), _href=url, _class="btn"))
+        menu.append(li)
+
+    return dict(menu=menu)
+
 def render_email_confirma(form, template_file):
     caminho = os.path.join(request.folder, "views", template_file)
     with open(caminho, "r") as template:
@@ -17,7 +49,7 @@ def contact():
                  INPUT(_type="email", requires=IS_EMAIL(), _name="email", _placeholder=T("Your email")),
                  BR(),
                  TEXTAREA("Sua mensagem",_name="message", requires=IS_NOT_EMPTY()),
-                 BR(), 
+                 BR(),
                  BUTTON("Enviar")
                 )
 
@@ -35,6 +67,7 @@ def contact():
               message=[None, render_email_confirma(form, "email_confirma.html")]
             )
 
+        form.insert(0, P(T("Successfully sent"), _class="alert"))
     return dict(form=form)
 
 
@@ -43,7 +76,7 @@ def index():
     featured = products.exclude(lambda registro: registro.featured == True)
     #print db._timings
     #response.view = "alternate/myhome.html"
-    return dict(products=products, featured=featured)  
+    return dict(products=products, featured=featured)
 
 
 
@@ -86,7 +119,7 @@ def user():
 
 def account():
     hidden_fields = ['zipcode', 'picture', 'address', 'house_number']
-    hide_fields("auth_user", hidden_fields) 
+    hide_fields("auth_user", hidden_fields)
     return dict(register=auth.register(),
                 login=auth.login())
 

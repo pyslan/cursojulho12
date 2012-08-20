@@ -1,18 +1,18 @@
-{{def get_thumbnails(products, box='span3', size=(200,200)):}}
-	<ul class="thumbnails">
-	{{for product in products:}}	
-		<li class="{{=box}}">
-		<div class="thumbnail">
-		  {{if product.thumbnail:}}
+{{def get_thumbnails(products, box='span3', size=(180,180)):}}
+    <ul class="thumbnails">
+    {{for product in products:}}
+        <li class="{{=box}}">
+        <div class="thumbnail">
+          {{if product.thumbnail:}}
              <img width="{{=size[0]}}" height="{{=size[1]}}" src="{{=URL('home', 'download', args=[product.thumbnail])}}" alt="">
-		  {{else:}}
-		     <img width="{{=size[0]}}" height="{{=size[1]}}" src="http://placehold.it/260x180" alt="">
-		  {{pass}}
-		  <h4>{{=product.name}}</h4>
-		  <p><span>{{=product.unit_price}}</span></p>
-		  <a class="btn btn-primary" href="{{=URL('product', 'show', args=[slugfy(product)])}}">{{=T("View details")}}</a>
-		</div>
-		</li>
-	{{pass}}
-	</ul>
+          {{else:}}
+             <img width="{{=size[0]}}" height="{{=size[1]}}" src="http://placehold.it/260x180" alt="">
+          {{pass}}
+          <h4>{{=product.name}}</h4>
+          <p><span>{{=format_price(product.unit_price)}}</span></p>
+          <a class="btn btn-primary" href="{{=URL('product', 'show', args=[slugfy(product)])}}">{{=T("View details")}}</a>
+        </div>
+        </li>
+    {{pass}}
+    </ul>
 {{return}}

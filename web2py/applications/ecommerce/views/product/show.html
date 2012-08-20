@@ -2,10 +2,6 @@
 
 {{block main}}
 <div class="container">
-
-    <div class="row span12">
-       <h3> {{=product.name}}</h3>
-    </div>
    <div class="row span12">
    
         <div class="span5">
@@ -19,13 +15,13 @@
         </div> 
         <div class="span5">
 
+<h3> {{=product.name}}</h3>
+<hr>
             <div class="span4">
                 <span class="label">{{=T("Price")}}</span>
-                <strong>{{=format_price(product.unit_price)}}</strong>
+                <strong style="font-size:22px;">{{=format_price(product.unit_price)}}</strong>
                 <hr>
                 {{=form}}
-
-                {{=T("this is a test")}}
             </div>
             
         </div> 

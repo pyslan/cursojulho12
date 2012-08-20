@@ -47,11 +47,14 @@ origins = {"BR": 1.0, "JP": 1.2, "EUA": 1.8, "UK": 1.5 }
 # OrderItems
 # id, order_id, product_id, unit_price, qtd, total_price (signature)
 
+if session.cart:
+	cartcount = len(session.cart)
+else:
+	cartcount = 0
 
 meus_menus = [
     {"title": "Home", "url": URL('home', 'index')},
-    {"title": "Products", "url": URL('products', 'list')},
-    {"title": "Cart", "url": URL('cart', 'show')},
-    {"title": "Admin", "url": URL(a="admin")},
+    {"title": "Cart (%s)" % cartcount, "url": URL('cart', 'show')},
     {"title": "Contact", "url": URL('home', 'contact')},
+    {"title": "Admin", "url": URL("home","admin")},
 ]

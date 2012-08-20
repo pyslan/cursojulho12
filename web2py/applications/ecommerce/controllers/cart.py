@@ -53,7 +53,7 @@ def remove():
     session.cart = newcart
     # usamos apenas em teste
     # nao usar eval em produção
-    return "jQuery('#%s').remove();" % pid
+    return "jQuery('#%s').remove(); alert('HEY! Implemente o redirect caso o carrinho seja vazio!');" % pid
 
 def clear():
     # limpar carrinho
@@ -63,5 +63,5 @@ def checkout():
     # apenas para usuario logado
     # gerar pedido
     # enviar email para o cliente
-    pass
+    return dict(message="Implemente o fechamento do pedido, inserção nas tabelas order e order_items (crie essas tabelas), envie um email para o usuario e notifique o admin que entrou um novo pedido")
 
