@@ -16,3 +16,8 @@ Referencias
 http://www.cursodepython.com.br
 
 http://twitter.github.com/bootstrap
+
+Live demo
+---------
+
+http://cursodepython.pythonanywhere.com/
